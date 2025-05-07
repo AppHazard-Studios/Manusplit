@@ -1,5 +1,5 @@
 """
-Manusplit - Perfectly fixed GUI with consistent spacing and proper alignment.
+Manusplit - GUI with properly aligned columns and improved layout.
 """
 import sys
 import os
@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                            QHBoxLayout, QLabel, QPushButton, QFileDialog,
                            QSpinBox, QLineEdit, QCheckBox, QDialog, QFormLayout,
                            QTableWidget, QTableWidgetItem, QHeaderView, QFrame,
-                           QAbstractItemView, QSizePolicy)
+                           QAbstractItemView, QSizePolicy, QGridLayout)
 from PyQt6.QtGui import (QFont, QIcon, QDragEnterEvent, QDropEvent, QColor, QPalette,
                        QCursor)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QTimer, QSize, QEvent
@@ -27,9 +27,10 @@ class Worker(QObject):
     """Worker thread to process files in the background."""
 
     # Define signals for communication with main thread
-    statusUpdated = pyqtSignal(str)
     progressUpdated = pyqtSignal(int)
     resultReady = pyqtSignal(dict)
+    fileProcessingStarted = pyqtSignal(int)  # Signal with row index
+    fileProcessingComplete = pyqtSignal(int, dict)  # Row index and result
     finished = pyqtSignal()
 
     def __init__(self, splitter, files, settings):
@@ -45,12 +46,13 @@ class Worker(QObject):
             total_files = len(self.files)
 
             for i, file in enumerate(self.files):
-                # Calculate progress
+                # Calculate overall progress
                 progress = int((i / total_files) * 100)
                 self.progressUpdated.emit(progress)
 
-                # Only emit minimal status updates
-                self.statusUpdated.emit("...")
+                # Emit signal that we're starting to process this file
+                row = i  # Assuming files are added to table in same order
+                self.fileProcessingStarted.emit(row)
 
                 # Create an output folder for this file
                 self._prepare_output_folder(file)
@@ -58,16 +60,14 @@ class Worker(QObject):
                 # Process the file using the splitter
                 result = self.splitter.process_file(file, callback=self.splitter_callback)
 
-                # Emit result
-                self.resultReady.emit(result)
+                # Emit result for this specific file
+                self.fileProcessingComplete.emit(row, result)
 
-            # Complete - clear status
-            self.statusUpdated.emit("")
+            # Complete processing
             self.progressUpdated.emit(100)
 
         except Exception as e:
             self.logger.exception(f"Error in processing thread: {str(e)}")
-            self.statusUpdated.emit(f"Error: {str(e)}")
 
         finally:
             self.finished.emit()
@@ -108,11 +108,7 @@ class Worker(QObject):
 
     def splitter_callback(self, status, progress, message):
         """Callback for the DocumentSplitter with minimal updates."""
-        # Only send minimal status messages
-        if status == "saving" or status == "complete":
-            self.statusUpdated.emit("")
-        else:
-            self.statusUpdated.emit("...")
+        # We don't update status anymore - the table cells will show progress
         self.progressUpdated.emit(progress)
 
 
@@ -494,10 +490,14 @@ class ManusplitApp(QMainWindow):
 
         self.logger = logging.getLogger(__name__)
         self.processed_files = set()  # Track which files have been processed
+        self.has_files = False  # Track if we have files loaded
+        self.dot_timers = {}  # For animation timers
 
         # Set up the UI
         self.setWindowTitle("Manusplit")
-        self.resize(700, 400)  # Compact height
+        self.setMinimumWidth(450)  # Slightly larger minimum width
+        self.setMinimumHeight(280)  # Slightly reduced minimum height
+        self.resize(450, 280)  # Initial window size matching updated dimensions
         self.setup_ui()
 
         # Enable drag and drop
@@ -520,9 +520,10 @@ class ManusplitApp(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(16, 16, 16, 16)
-        main_layout.setSpacing(10)  # Reduced spacing
+        # Main layout with minimal margins
+        self.main_layout = QVBoxLayout(central_widget)
+        self.main_layout.setContentsMargins(12, 12, 12, 12)
+        self.main_layout.setSpacing(8)
 
         # Container widget for the file table and header
         self.table_container = QWidget()
@@ -532,7 +533,7 @@ class ManusplitApp(QMainWindow):
 
         # Custom table header
         header_widget = QWidget()
-        header_widget.setFixedHeight(40)
+        header_widget.setFixedHeight(44)  # Slightly taller header
         header_widget.setStyleSheet("""
             background-color: #232323;
             border-top-left-radius: 8px;
@@ -540,34 +541,42 @@ class ManusplitApp(QMainWindow):
             border-bottom: 1px solid #333333;
         """)
 
-        header_layout = QHBoxLayout(header_widget)
-        header_layout.setContentsMargins(16, 0, 16, 0)
+        # Use grid layout for precise positioning
+        header_layout = QGridLayout(header_widget)
+        header_layout.setContentsMargins(20, 0, 20, 0)
         header_layout.setSpacing(0)
 
-        # Left-aligned "Selected files" header
-        files_header = QLabel("Selected files")
-        files_header.setStyleSheet("color: white; font-weight: 500; font-size: 13px;")
+        # Left-aligned "Files to split" header
+        files_header = QLabel("Files")
+        files_header.setStyleSheet("color: white; font-weight: 600; font-size: 14px;")
         files_header.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        header_layout.addWidget(files_header, 0, 0)
 
-        # Center-aligned "# Words" header
-        words_header = QLabel("# Words")
-        words_header.setStyleSheet("color: white; font-weight: 500; font-size: 13px;")
-        words_header.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+        # Right-aligned "# Parts" in a container
+        right_container = QWidget()
+        right_container.setStyleSheet("background-color: transparent;")
+        right_layout = QHBoxLayout(right_container)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(8)  # Smaller spacing since only one widget remains
 
-        # Center-aligned "# Parts" header
+        # "# Parts" header - center-aligned (first and only right-hand header)
         parts_header = QLabel("# Parts")
-        parts_header.setStyleSheet("color: white; font-weight: 500; font-size: 13px;")
-        parts_header.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+        parts_header.setStyleSheet("color: white; font-weight: 600; font-size: 14px;")
+        parts_header.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+        parts_header.setFixedWidth(80)
+        right_layout.addWidget(parts_header)
 
-        # Add headers to layout with proper stretching
-        header_layout.addWidget(files_header, 7)
-        header_layout.addWidget(words_header, 2)
-        header_layout.addWidget(parts_header, 1)
+        # Add right container at column 1
+        header_layout.addWidget(right_container, 0, 1, 1, 1, Qt.AlignmentFlag.AlignRight)
+
+        # Set column stretch factors for proper alignment
+        header_layout.setColumnStretch(0, 1)  # Files column stretches
+        header_layout.setColumnStretch(1, 0)  # Fixed width for right columns
 
         table_container_layout.addWidget(header_widget)
 
         # Table for files
-        self.file_table = QTableWidget(0, 3)
+        self.file_table = QTableWidget(0, 2)
         self.file_table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self.file_table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.file_table.setShowGrid(False)
@@ -575,12 +584,10 @@ class ManusplitApp(QMainWindow):
         self.file_table.verticalHeader().setVisible(False)
         self.file_table.horizontalHeader().setVisible(False)
 
-        # Set column resize modes and widths
+        # Set fixed column widths to match header
         self.file_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.file_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-        self.file_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-        self.file_table.setColumnWidth(1, 80)
-        self.file_table.setColumnWidth(2, 60)
+        self.file_table.setColumnWidth(1, 80)   # Match header width
 
         # Set elegant styling
         self.file_table.setStyleSheet("""
@@ -594,7 +601,7 @@ class ManusplitApp(QMainWindow):
                 outline: none;
             }
             QTableWidget::item {
-                padding: 8px;
+                padding: 8px 20px;  /* More padding for better readability */
                 border: none;
             }
             QTableWidget::item:selected {
@@ -619,125 +626,152 @@ class ManusplitApp(QMainWindow):
 
         # Initially hide the table container
         self.table_container.setVisible(False)
-        main_layout.addWidget(self.table_container)
+        self.main_layout.addWidget(self.table_container)
 
-        # Status bar for minimal processing messages
-        self.status_label = QLabel("")
-        self.status_label.setStyleSheet("color: #aaaaaa; font-size: 13px;")
-        self.status_label.setFixedHeight(20)  # Minimal height
-        main_layout.addWidget(self.status_label)
+        # Create a container for the drop zone with the settings cog
+        self.drop_container = QWidget()
+        drop_container_layout = QVBoxLayout(self.drop_container)
+        drop_container_layout.setContentsMargins(0, 0, 0, 0)
+        drop_container_layout.setSpacing(0)
 
-        # Drag zone with proper text display
-        self.drop_zone = QLabel("Drop files here to process")
-        self.drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.drop_zone.setFixedHeight(50)  # Perfect height to fit text
-        self.drop_zone.setStyleSheet("""
-            QLabel {
-                color: #aaaaaa;
-                font-size: 14px;
-                background-color: #222222;
-                border: 1px solid #333333;
-                border-radius: 8px;
-                margin-top: 4px;
-                margin-bottom: 4px;
-                padding-top: 14px;      /* Increased top padding */
-                padding-bottom: 14px;   /* Increased bottom padding */
-            }
+        # Taller drop zone with settings icon
+        self.drop_zone = QWidget()
+        # let height size to content
+        self.drop_zone.setMinimumHeight(0)
+        self.drop_zone.setStyleSheet(
+            """
+            background-color: #222222;
+            border: 0px dashed #555555;
+            border-radius: 8px;
+            """
+        )
+
+        # Use relative positioning layout
+        drop_layout = QVBoxLayout(self.drop_zone)
+        drop_layout.setContentsMargins(20, 12, 20, 12)
+
+        # Center container for text - ensures perfect vertical centering
+        center_container = QWidget()
+        center_container.setStyleSheet("border: none; background-color: transparent;")
+        center_layout = QVBoxLayout(center_container)
+        center_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Specific text with proper size
+        self.drop_text = QLabel("Drop .docx or .txt files here to split.")
+        self.drop_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.drop_text.setStyleSheet("""
+            color: #aaaaaa;
+            font-size: 14px;
+            background-color: transparent;
+            padding: 4px 12px;
+            border: none;
         """)
-        main_layout.addWidget(self.drop_zone)
+        center_layout.addWidget(self.drop_text)
 
-        # Settings button directly below the drag zone with minimal spacing
-        settings_container = QHBoxLayout()
-        settings_container.setContentsMargins(0, 4, 0, 0)  # Minimal top margin
+        # Add center container in the middle of the drop zone
+        drop_layout.addStretch(1)
+        drop_layout.addWidget(center_container)
+        drop_layout.addStretch(1)
 
-        # Add stretch to push settings button to the right
-        settings_container.addStretch()
-
-        # Modern settings button
-        self.settings_btn = QPushButton("Settings")
+        # Settings icon overlay - positioned in top right corner
+        self.settings_btn = QPushButton()
         self.settings_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.settings_btn.setFixedHeight(30)  # Smaller height
+        self.settings_btn.setFixedSize(36, 36)
         self.settings_btn.setStyleSheet("""
             QPushButton {
-                background-color: #222222;
-                color: #aaaaaa;
-                border: 1px solid #333333;
-                border-radius: 6px;
-                padding: 4px 12px;
-                font-size: 13px;
+                background-color: transparent;
+                color: #666666;
+                border: none;
+                font-size: 20px;
+                text-align: center;
+                padding: 0;
             }
             QPushButton:hover {
-                background-color: #2a2a2a;
-                color: white;
-            }
-            QPushButton:pressed {
-                background-color: #333333;
+                color: #ffffff;
             }
         """)
+        self.settings_btn.setText("⚙")
         self.settings_btn.clicked.connect(self.show_settings)
-        settings_container.addWidget(self.settings_btn)
 
-        main_layout.addLayout(settings_container)
+        # Position settings button absolutely in top right
+        self.settings_btn.setParent(self.drop_zone)
+        drop_layout.addWidget(self.settings_btn, 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
 
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        """Handle drag enter events."""
-        if event.mimeData().hasUrls():
-            self.drop_zone.setStyleSheet("""
-                QLabel {
+        drop_container_layout.addWidget(self.drop_zone)
+        self.main_layout.addWidget(self.drop_container)
+
+    def dragEnterEvent(self, event):
+        """Handle drag enter events safely."""
+        try:
+            if event.mimeData().hasUrls():
+                self.drop_zone.setStyleSheet("""
+                    background-color: rgba(0, 120, 212, 0.15);
+                    border: 0px dashed #555555;
+                    border-radius: 8px;
+                """)
+                self.drop_text.setStyleSheet("""
                     color: #ffffff;
                     font-size: 14px;
-                    background-color: rgba(0, 120, 212, 0.15);
-                    border: 1px solid #0078d4;
-                    border-radius: 8px;
-                    padding-top: 14px;
-                    padding-bottom: 14px;
-                }
-            """)
-            event.acceptProposedAction()
+                    background-color: transparent;
+                    padding: 4px 12px;
+                    border: none;
+                """)
+                event.acceptProposedAction()
+        except Exception as e:
+            self.logger.error(f"Error in dragEnterEvent: {str(e)}")
 
     def dragLeaveEvent(self, event):
-        """Handle drag leave events."""
-        self.drop_zone.setStyleSheet("""
-            QLabel {
+        """Handle drag leave events safely."""
+        try:
+            self.drop_zone.setStyleSheet("""
+                background-color: #222222;
+                border: 0px dashed #555555;
+                border-radius: 8px;
+            """)
+            self.drop_text.setStyleSheet("""
                 color: #aaaaaa;
                 font-size: 14px;
-                background-color: #222222;
-                border: 1px solid #333333;
-                border-radius: 8px;
-                padding-top: 14px;
-                padding-bottom: 14px;
-            }
-        """)
+                background-color: transparent;
+                padding: 4px 12px;
+                border: none;
+            """)
+        except Exception as e:
+            self.logger.error(f"Error in dragLeaveEvent: {str(e)}")
 
-    def dropEvent(self, event: QDropEvent):
-        """Handle drop events."""
-        if event.mimeData().hasUrls():
-            self.drop_zone.setStyleSheet("""
-                QLabel {
+    def dropEvent(self, event):
+        """Handle drop events safely."""
+        try:
+            if event.mimeData().hasUrls():
+                # Reset styles
+                self.drop_zone.setStyleSheet("""
+                    background-color: #222222;
+                    border: 0px dashed #555555;
+                    border-radius: 8px;
+                """)
+                self.drop_text.setStyleSheet("""
                     color: #aaaaaa;
                     font-size: 14px;
-                    background-color: #222222;
-                    border: 1px solid #333333;
-                    border-radius: 8px;
-                    padding-top: 14px;
-                    padding-bottom: 14px;
-                }
-            """)
-            event.acceptProposedAction()
+                    background-color: transparent;
+                    padding: 4px 12px;
+                    border: none;
+                """)
+                event.acceptProposedAction()
 
-            files = []
-            for url in event.mimeData().urls():
-                filepath = url.toLocalFile()
-                # Check for duplicates
-                if filepath not in self.processed_files:
-                    files.append(filepath)
-                    self.processed_files.add(filepath)
+                # Process files with delay to ensure UI updates first
+                files = []
+                for url in event.mimeData().urls():
+                    filepath = url.toLocalFile()
+                    if filepath and os.path.isfile(filepath):
+                        # Check for duplicates
+                        if filepath not in self.processed_files:
+                            files.append(filepath)
+                            self.processed_files.add(filepath)
 
-            if files:
-                self.process_files(files)
-            else:
-                self.status_label.setText("Files already processed or unsupported")
-                QTimer.singleShot(2000, lambda: self.status_label.setText(""))
+                if files:
+                    # Use a short timer to process files after the event completes
+                    QTimer.singleShot(50, lambda: self.process_files(files))
+        except Exception as e:
+            self.logger.error(f"Error in dropEvent: {str(e)}")
 
     def truncate_filename(self, filename):
         """Truncate long filenames for display."""
@@ -760,36 +794,36 @@ class ManusplitApp(QMainWindow):
             if ext in ['.docx', '.txt']:
                 valid_files.append(file)
             else:
-                self.status_label.setText(f"Skipping unsupported file: {os.path.basename(file)}")
                 continue
 
         if not valid_files:
-            self.status_label.setText("No valid files selected")
             return
 
-        # Show table container
-        self.table_container.setVisible(True)
+        # Show table container if not already visible
+        if not self.has_files:
+            self.has_files = True
+            self.table_container.setVisible(True)
 
-        # Make drop zone more compact
-        self.drop_zone.setFixedHeight(36)  # Smaller when files present
-        self.drop_zone.setText("Drag more files here to process")
-        self.drop_zone.setStyleSheet("""
-            QLabel {
-                color: #aaaaaa;
-                font-size: 14px;
+            # Make drop zone more compact when we have files
+            self.drop_zone.setFixedHeight(100)  # Increased height to prevent text cropping
+
+            # Restore drop-zone outline after first file is loaded
+            self.drop_zone.setStyleSheet("""
                 background-color: #222222;
-                border: 1px solid #333333;
+                border: 0px dashed #555555;
                 border-radius: 8px;
-                padding-top: 8px;
-                padding-bottom: 8px;
-            }
-        """)
+            """)
+
+            # Keep the same text as before
+            self.drop_text.setText("Drop .docx or .txt files here to split.")
+
+        # Cancel any existing animation timers
+        for timer in self.dot_timers.values():
+            timer.stop()
+        self.dot_timers.clear()
 
         # Add files to table
         self.add_files_to_table(valid_files)
-
-        # Update status - minimal
-        self.status_label.setText("...")
 
         # Start worker thread
         self.worker_thread = QThread()
@@ -797,10 +831,9 @@ class ManusplitApp(QMainWindow):
         self.worker.moveToThread(self.worker_thread)
 
         self.worker_thread.started.connect(self.worker.process)
-        self.worker.statusUpdated.connect(self.status_label.setText)
-        self.worker.resultReady.connect(self.update_file_result)
-        self.worker.finished.connect(self.worker_thread.quit)
-        self.worker.finished.connect(self.processing_completed)
+        self.worker.fileProcessingStarted.connect(self.mark_file_processing)
+        self.worker.fileProcessingComplete.connect(self.update_file_result)
+        self.worker.finished.connect(self.on_processing_finished)
 
         # Cleanup
         self.worker_thread.finished.connect(self.worker.deleteLater)
@@ -808,6 +841,50 @@ class ManusplitApp(QMainWindow):
 
         # Start processing
         self.worker_thread.start()
+
+    def on_processing_finished(self):
+        """Handle processing completion."""
+        # Stop all animation timers
+        for timer in self.dot_timers.values():
+            timer.stop()
+        self.dot_timers.clear()
+
+        # Let worker thread quit
+        self.worker_thread.quit()
+
+    def mark_file_processing(self, row):
+        """Mark a file as currently processing."""
+        # Update parts count with processing indicator
+        parts_item = self.file_table.item(row, 1)
+        if parts_item:
+            parts_item.setText("...")
+            parts_item.setTextAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+            # Ensure font size matches settings UI (14px)
+            font = parts_item.font()
+            font.setPointSize(14)
+            parts_item.setFont(font)
+
+            # Create timer for this cell
+            timer = QTimer(self)
+            timer.timeout.connect(lambda: self._animate_dots(row, 1))
+            timer.start(500)  # Update every 500ms
+            self.dot_timers[(row, 1)] = timer
+
+    def _animate_dots(self, row, col):
+        """Animate the loading dots."""
+        item = self.file_table.item(row, col)
+        if not item:
+            return
+
+        text = item.text()
+        if text == "...":
+            item.setText(".")
+        elif text == ".":
+            item.setText("..")
+        elif text == "..":
+            item.setText("...")
+        else:
+            item.setText("...")
 
     def add_files_to_table(self, files):
         """Add files to the table with proper styling."""
@@ -821,56 +898,48 @@ class ManusplitApp(QMainWindow):
             self.file_table.insertRow(row)
 
             # Set row height
-            self.file_table.setRowHeight(row, 36)
+            self.file_table.setRowHeight(row, 38)  # Slightly taller for better readability
 
-            # Create row number and filename item (left-aligned)
-            file_item = QTableWidgetItem(f"{row+1}  {truncated_name}")
+            # Create filename item (left-aligned with proper padding)
+            file_item = QTableWidgetItem(f"{truncated_name}")
             file_item.setData(Qt.ItemDataRole.UserRole, file_path)
             file_item.setToolTip(filename)
             file_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
-            # Create word count placeholder (center-aligned)
-            word_item = QTableWidgetItem("...")
-            word_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
-
-            # Create parts placeholder (center-aligned)
+            # Create parts placeholder (center-aligned to match header)
             parts_item = QTableWidgetItem("...")
-            parts_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            parts_item.setTextAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+
+            # Apply larger font sizes (14px to match settings UI)
+            for item in [file_item, parts_item]:
+                font = item.font()
+                font.setPointSize(14)
+                item.setFont(font)
 
             # Add items to table
             self.file_table.setItem(row, 0, file_item)
-            self.file_table.setItem(row, 1, word_item)
-            self.file_table.setItem(row, 2, parts_item)
+            self.file_table.setItem(row, 1, parts_item)
 
-    def update_file_result(self, result):
+    def update_file_result(self, row, result):
         """Update table with processing result."""
         if not result['success']:
             return
 
-        file_path = result['original_path']
+        # Stop animation timers for this row
+        if (row, 1) in self.dot_timers:
+            self.dot_timers[(row, 1)].stop()
+            del self.dot_timers[(row, 1)]
 
-        # Find the row for this file
-        for row in range(self.file_table.rowCount()):
-            item = self.file_table.item(row, 0)
-            if item and item.data(Qt.ItemDataRole.UserRole) == file_path:
-                # Update word count (center-aligned)
-                word_item = self.file_table.item(row, 1)
-                if word_item:
-                    word_item.setText(f"{result['total_words']:,}")
-                    word_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
-
-                # Update parts count (center-aligned)
-                parts_item = self.file_table.item(row, 2)
-                if parts_item:
-                    parts_item.setText(str(result['parts_created']))
-                    parts_item.setForeground(QColor("#4CAF50"))  # Green text
-                    parts_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
-
-                break
-
-    def processing_completed(self):
-        """Handle completion of all processing."""
-        self.status_label.setText("")
+        # Update parts count (center-aligned to match header)
+        parts_item = self.file_table.item(row, 1)
+        if parts_item:
+            parts_item.setText(str(result['parts_created']))
+            # No special color - keep it white like the other text
+            parts_item.setTextAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+            # Ensure font size matches settings UI (14px)
+            font = parts_item.font()
+            font.setPointSize(14)
+            parts_item.setFont(font)
 
     def show_settings(self):
         """Show the settings dialog."""
@@ -884,9 +953,6 @@ class ManusplitApp(QMainWindow):
         if dialog.exec():
             # Save settings
             if dialog.save_settings():
-                self.status_label.setText("Settings saved")
-                QTimer.singleShot(2000, lambda: self.status_label.setText(""))
-
                 # Update splitter
                 self.splitter.current_output_folder = self.settings.get("output_folder")
 

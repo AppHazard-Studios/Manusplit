@@ -191,3 +191,300 @@ _tkinter.TclError: invalid command name ".!canvas"
 2025-05-07 20:20:36,995 - root - INFO - Starting Manusplit v1.0.0
 2025-05-07 20:20:37,112 - settings - INFO - Settings loaded successfully
 2025-05-07 20:20:37,112 - root - INFO - Settings loaded
+2025-05-07 20:33:41,232 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:33:41,345 - settings - INFO - Settings loaded successfully
+2025-05-07 20:33:41,345 - root - INFO - Settings loaded
+2025-05-07 20:34:31,165 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:34:31,265 - settings - INFO - Settings loaded successfully
+2025-05-07 20:34:31,265 - root - INFO - Settings loaded
+2025-05-07 20:39:25,613 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:39:25,727 - settings - INFO - Settings loaded successfully
+2025-05-07 20:39:25,727 - root - INFO - Settings loaded
+2025-05-07 20:39:43,894 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:39:43,991 - settings - INFO - Settings loaded successfully
+2025-05-07 20:39:43,991 - root - INFO - Settings loaded
+2025-05-07 20:41:32,923 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:41:33,023 - settings - INFO - Settings loaded successfully
+2025-05-07 20:41:33,023 - root - INFO - Settings loaded
+2025-05-07 20:43:50,848 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:43:50,950 - settings - INFO - Settings loaded successfully
+2025-05-07 20:43:50,950 - root - INFO - Settings loaded
+2025-05-07 20:47:26,840 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:47:26,930 - settings - INFO - Settings loaded successfully
+2025-05-07 20:47:26,931 - root - INFO - Settings loaded
+2025-05-07 20:47:26,936 - root - ERROR - Unhandled exception: name 'QGridLayout' is not defined
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/main.py", line 40, in main
+    window = ManusplitApp(settings)
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 500, in __init__
+    self.setup_ui()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 544, in setup_ui
+    header_layout = QGridLayout(header_widget)
+NameError: name 'QGridLayout' is not defined
+2025-05-07 20:47:30,045 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:47:30,144 - settings - INFO - Settings loaded successfully
+2025-05-07 20:47:30,144 - root - INFO - Settings loaded
+2025-05-07 20:47:30,150 - root - ERROR - Unhandled exception: name 'QGridLayout' is not defined
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/main.py", line 40, in main
+    window = ManusplitApp(settings)
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 500, in __init__
+    self.setup_ui()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 544, in setup_ui
+    header_layout = QGridLayout(header_widget)
+NameError: name 'QGridLayout' is not defined
+2025-05-07 20:48:44,004 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:48:44,102 - settings - INFO - Settings loaded successfully
+2025-05-07 20:48:44,102 - root - INFO - Settings loaded
+2025-05-07 20:48:44,107 - root - ERROR - Unhandled exception: name 'QGridLayout' is not defined
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/main.py", line 40, in main
+    window = ManusplitApp(settings)
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 500, in __init__
+    self.setup_ui()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 544, in setup_ui
+    header_layout = QGridLayout(header_widget)
+NameError: name 'QGridLayout' is not defined
+2025-05-07 20:48:47,855 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:48:47,954 - settings - INFO - Settings loaded successfully
+2025-05-07 20:48:47,954 - root - INFO - Settings loaded
+2025-05-07 20:48:47,959 - root - ERROR - Unhandled exception: name 'QGridLayout' is not defined
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/main.py", line 40, in main
+    window = ManusplitApp(settings)
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 500, in __init__
+    self.setup_ui()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 544, in setup_ui
+    header_layout = QGridLayout(header_widget)
+NameError: name 'QGridLayout' is not defined
+2025-05-07 20:50:45,452 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:50:45,549 - settings - INFO - Settings loaded successfully
+2025-05-07 20:50:45,549 - root - INFO - Settings loaded
+2025-05-07 20:50:56,763 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:50:56,848 - settings - INFO - Settings loaded successfully
+2025-05-07 20:50:56,848 - root - INFO - Settings loaded
+2025-05-07 20:52:48,714 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:52:48,801 - settings - INFO - Settings loaded successfully
+2025-05-07 20:52:48,801 - root - INFO - Settings loaded
+2025-05-07 20:53:45,374 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:53:45,480 - settings - INFO - Settings loaded successfully
+2025-05-07 20:53:45,480 - root - INFO - Settings loaded
+2025-05-07 20:53:45,486 - root - ERROR - Unhandled exception: name 'QGridLayout' is not defined
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/main.py", line 40, in main
+    window = ManusplitApp(settings)
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 500, in __init__
+    self.setup_ui()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 544, in setup_ui
+    header_layout = QGridLayout(header_widget)
+NameError: name 'QGridLayout' is not defined
+2025-05-07 20:53:50,420 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:53:50,517 - settings - INFO - Settings loaded successfully
+2025-05-07 20:53:50,517 - root - INFO - Settings loaded
+2025-05-07 20:53:50,522 - root - ERROR - Unhandled exception: name 'QGridLayout' is not defined
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/main.py", line 40, in main
+    window = ManusplitApp(settings)
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 500, in __init__
+    self.setup_ui()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 544, in setup_ui
+    header_layout = QGridLayout(header_widget)
+NameError: name 'QGridLayout' is not defined
+2025-05-07 20:53:54,692 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 20:53:54,778 - settings - INFO - Settings loaded successfully
+2025-05-07 20:53:54,778 - root - INFO - Settings loaded
+2025-05-07 21:00:35,988 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 21:00:36,089 - settings - INFO - Settings loaded successfully
+2025-05-07 21:00:36,089 - root - INFO - Settings loaded
+2025-05-07 21:09:11,189 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 21:09:11,293 - settings - INFO - Settings loaded successfully
+2025-05-07 21:09:11,293 - root - INFO - Settings loaded
+2025-05-07 21:16:09,286 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 21:16:09,377 - settings - INFO - Settings loaded successfully
+2025-05-07 21:16:09,377 - root - INFO - Settings loaded
+2025-05-07 21:16:47,307 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 21:16:47,405 - settings - INFO - Settings loaded successfully
+2025-05-07 21:16:47,405 - root - INFO - Settings loaded
+2025-05-07 21:30:41,944 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 21:30:42,048 - settings - INFO - Settings loaded successfully
+2025-05-07 21:30:42,048 - root - INFO - Settings loaded
+2025-05-07 21:30:42,157 - root - ERROR - Unhandled exception: 'ManusplitApp' object has no attribute 'show_settings'
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/main.py", line 40, in main
+    window = ManusplitApp(settings)
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 481, in __init__
+    self.setup_ui()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 658, in setup_ui
+    self.settings_btn.clicked.connect(self.show_settings)
+AttributeError: 'ManusplitApp' object has no attribute 'show_settings'
+2025-05-07 21:34:12,980 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 21:34:13,111 - settings - INFO - Settings loaded successfully
+2025-05-07 21:34:13,111 - root - INFO - Settings loaded
+2025-05-07 21:38:20,625 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 21:38:20,758 - settings - INFO - Settings loaded successfully
+2025-05-07 21:38:20,758 - root - INFO - Settings loaded
+2025-05-07 21:38:20,782 - root - ERROR - Unhandled exception: type object 'Qt' has no attribute 'AlignLeft'
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/main.py", line 40, in main
+    window = ManusplitApp(settings)
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 367, in __init__
+    self.setup_ui()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 400, in setup_ui
+    files_header.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+AttributeError: type object 'Qt' has no attribute 'AlignLeft'
+2025-05-07 21:38:24,350 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 21:38:24,451 - settings - INFO - Settings loaded successfully
+2025-05-07 21:38:24,451 - root - INFO - Settings loaded
+2025-05-07 21:38:24,474 - root - ERROR - Unhandled exception: type object 'Qt' has no attribute 'AlignLeft'
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/main.py", line 40, in main
+    window = ManusplitApp(settings)
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 367, in __init__
+    self.setup_ui()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 400, in setup_ui
+    files_header.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+AttributeError: type object 'Qt' has no attribute 'AlignLeft'
+2025-05-07 21:40:10,866 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 21:40:10,973 - settings - INFO - Settings loaded successfully
+2025-05-07 21:40:10,973 - root - INFO - Settings loaded
+2025-05-07 21:46:26,827 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 21:46:26,931 - settings - INFO - Settings loaded successfully
+2025-05-07 21:46:26,932 - root - INFO - Settings loaded
+2025-05-07 21:50:02,322 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 21:50:02,425 - settings - INFO - Settings loaded successfully
+2025-05-07 21:50:02,425 - root - INFO - Settings loaded
+2025-05-07 21:50:02,529 - root - ERROR - Unhandled exception: type object 'Qt' has no attribute 'AlignHCenter'
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/main.py", line 40, in main
+    window = ManusplitApp(settings)
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 282, in __init__
+    self.setup_ui()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 299, in setup_ui
+    hdr.setDefaultAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+AttributeError: type object 'Qt' has no attribute 'AlignHCenter'
+2025-05-07 21:50:12,368 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 21:50:12,481 - settings - INFO - Settings loaded successfully
+2025-05-07 21:50:12,481 - root - INFO - Settings loaded
+2025-05-07 22:00:22,155 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:00:22,293 - settings - INFO - Settings loaded successfully
+2025-05-07 22:00:22,293 - root - INFO - Settings loaded
+2025-05-07 22:01:24,794 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:01:24,912 - settings - INFO - Settings loaded successfully
+2025-05-07 22:01:24,912 - root - INFO - Settings loaded
+2025-05-07 22:04:14,668 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:04:14,779 - settings - INFO - Settings loaded successfully
+2025-05-07 22:04:14,779 - root - INFO - Settings loaded
+2025-05-07 22:06:04,639 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:06:04,742 - settings - INFO - Settings loaded successfully
+2025-05-07 22:06:04,742 - root - INFO - Settings loaded
+2025-05-07 22:10:30,707 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:10:30,824 - settings - INFO - Settings loaded successfully
+2025-05-07 22:10:30,824 - root - INFO - Settings loaded
+2025-05-07 22:10:52,855 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:10:52,948 - settings - INFO - Settings loaded successfully
+2025-05-07 22:10:52,948 - root - INFO - Settings loaded
+2025-05-07 22:11:22,370 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:11:22,474 - settings - INFO - Settings loaded successfully
+2025-05-07 22:11:22,474 - root - INFO - Settings loaded
+2025-05-07 22:13:47,667 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:13:47,777 - settings - INFO - Settings loaded successfully
+2025-05-07 22:13:47,777 - root - INFO - Settings loaded
+2025-05-07 22:15:25,908 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:15:26,016 - settings - INFO - Settings loaded successfully
+2025-05-07 22:15:26,016 - root - INFO - Settings loaded
+2025-05-07 22:15:59,195 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:15:59,312 - settings - INFO - Settings loaded successfully
+2025-05-07 22:15:59,312 - root - INFO - Settings loaded
+2025-05-07 22:17:48,426 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:17:48,534 - settings - INFO - Settings loaded successfully
+2025-05-07 22:17:48,534 - root - INFO - Settings loaded
+2025-05-07 22:19:31,511 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:19:31,635 - settings - INFO - Settings loaded successfully
+2025-05-07 22:19:31,635 - root - INFO - Settings loaded
+2025-05-07 22:21:25,892 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:21:26,004 - settings - INFO - Settings loaded successfully
+2025-05-07 22:21:26,004 - root - INFO - Settings loaded
+2025-05-07 22:22:33,516 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:22:33,640 - settings - INFO - Settings loaded successfully
+2025-05-07 22:22:33,640 - root - INFO - Settings loaded
+2025-05-07 22:24:21,402 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:24:21,487 - settings - INFO - Settings loaded successfully
+2025-05-07 22:24:21,488 - root - INFO - Settings loaded
+2025-05-07 22:24:33,834 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:24:33,936 - settings - INFO - Settings loaded successfully
+2025-05-07 22:24:33,936 - root - INFO - Settings loaded
+2025-05-07 22:27:32,977 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:27:33,084 - settings - INFO - Settings loaded successfully
+2025-05-07 22:27:33,084 - root - INFO - Settings loaded
+2025-05-07 22:29:08,074 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:29:08,204 - settings - INFO - Settings loaded successfully
+2025-05-07 22:29:08,204 - root - INFO - Settings loaded
+2025-05-07 22:29:23,150 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:29:23,250 - settings - INFO - Settings loaded successfully
+2025-05-07 22:29:23,250 - root - INFO - Settings loaded
+2025-05-07 22:29:32,604 - splitter - ERROR - Error processing DOCX /Users/mw/Documents/eBooks/Keener, Craig S.;/The Gospel of Matthew (29)/The Gospel of Matthew - Keener, Craig S.;.docx: wrapped C/C++ object of type Worker has been deleted
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/splitter.py", line 142, in _process_docx
+    callback("processing", progress, f"Processing paragraph {i+1} of {len(paragraphs)}...")
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 112, in splitter_callback
+    self.progressUpdated.emit(progress)
+RuntimeError: wrapped C/C++ object of type Worker has been deleted
+2025-05-07 22:29:32,606 - splitter - ERROR - Error processing /Users/mw/Documents/eBooks/Keener, Craig S.;/The Gospel of Matthew (29)/The Gospel of Matthew - Keener, Craig S.;.docx: wrapped C/C++ object of type Worker has been deleted
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/splitter.py", line 142, in _process_docx
+    callback("processing", progress, f"Processing paragraph {i+1} of {len(paragraphs)}...")
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 112, in splitter_callback
+    self.progressUpdated.emit(progress)
+RuntimeError: wrapped C/C++ object of type Worker has been deleted
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/splitter.py", line 70, in process_file
+    return self._process_docx(file_path, callback)
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/splitter.py", line 217, in _process_docx
+    callback("error", 100, f"Error: {str(e)}")
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 112, in splitter_callback
+    self.progressUpdated.emit(progress)
+RuntimeError: wrapped C/C++ object of type Worker has been deleted
+2025-05-07 22:29:32,609 - gui - ERROR - Error in processing thread: wrapped C/C++ object of type Worker has been deleted
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 64, in process
+    self.fileProcessingComplete.emit(row, result)
+RuntimeError: wrapped C/C++ object of type Worker has been deleted
+2025-05-07 22:29:44,445 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:29:44,560 - settings - INFO - Settings loaded successfully
+2025-05-07 22:29:44,560 - root - INFO - Settings loaded
+2025-05-07 22:30:13,078 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:30:13,182 - settings - INFO - Settings loaded successfully
+2025-05-07 22:30:13,182 - root - INFO - Settings loaded
+2025-05-07 22:31:14,081 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:31:14,210 - settings - INFO - Settings loaded successfully
+2025-05-07 22:31:14,210 - root - INFO - Settings loaded
+2025-05-07 22:31:34,895 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:31:34,975 - settings - INFO - Settings loaded successfully
+2025-05-07 22:31:34,975 - root - INFO - Settings loaded
+2025-05-07 22:32:34,762 - splitter - INFO - File appears to be a split part already: The Gospel of Matthew - Keener, Craig S.; - Part 2.docx
+2025-05-07 22:34:34,884 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:34:35,007 - settings - INFO - Settings loaded successfully
+2025-05-07 22:34:35,007 - root - INFO - Settings loaded
+2025-05-07 22:34:39,821 - splitter - INFO - File appears to be a split part already: The Gospel of Matthew - Keener, Craig S.; - Part 2.docx
+2025-05-07 22:36:27,229 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:36:27,323 - settings - INFO - Settings loaded successfully
+2025-05-07 22:36:27,323 - root - INFO - Settings loaded
+2025-05-07 22:36:53,408 - splitter - INFO - File appears to be a split part already: The Gospel of Matthew - Keener, Craig S.; - Part 2.docx
+2025-05-07 22:38:03,781 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:38:03,869 - settings - INFO - Settings loaded successfully
+2025-05-07 22:38:03,869 - root - INFO - Settings loaded
+2025-05-07 22:40:30,764 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:40:30,877 - settings - INFO - Settings loaded successfully
+2025-05-07 22:40:30,877 - root - INFO - Settings loaded
+2025-05-07 22:44:34,321 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:44:34,412 - settings - INFO - Settings loaded successfully
+2025-05-07 22:44:34,412 - root - INFO - Settings loaded
+2025-05-07 22:45:58,020 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:45:58,116 - settings - INFO - Settings loaded successfully
+2025-05-07 22:45:58,117 - root - INFO - Settings loaded
+2025-05-07 22:48:14,986 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 22:48:15,122 - settings - INFO - Settings loaded successfully
+2025-05-07 22:48:15,122 - root - INFO - Settings loaded
