@@ -4,6 +4,7 @@ Handles the core functionality of splitting documents by word count.
 """
 import os
 import logging
+import re
 from pathlib import Path
 from docx import Document
 import utils
@@ -12,26 +13,29 @@ from typing import List, Tuple, Dict, Generator, Union
 
 class DocumentSplitter:
     """Handles splitting documents into smaller parts based on word count."""
-    
+
     def __init__(self, settings):
         """
         Initialize the document splitter.
-        
+
         Args:
             settings: Settings object with configuration
         """
         self.settings = settings
         self.logger = logging.getLogger(__name__)
-    
+
+        # Add a current_output_folder attribute that will be set by Worker
+        self.current_output_folder = settings.get("output_folder")
+
     def process_file(self, file_path: str, callback=None) -> Dict:
         """
         Process a single file, splitting it if needed.
-        
+
         Args:
             file_path (str): Path to file to process
             callback (callable): Optional callback function for progress updates
                                 Function signature: callback(status, progress, message)
-        
+
         Returns:
             dict: Processing results with stats
         """
@@ -43,18 +47,24 @@ class DocumentSplitter:
             "parts_created": 0,
             "output_files": []
         }
-        
+
         # Check file access
         can_access, error_msg = utils.check_file_access(file_path)
         if not can_access:
             result["message"] = f"Error accessing file: {error_msg}"
             self.logger.error(f"Cannot access {file_path}: {error_msg}")
             return result
-            
+
+        # Check if this is already a split file (contains "- Part X" in the filename)
+        basename = os.path.basename(file_path)
+        if re.search(r'- Part \d+\.\w+$', basename):
+            self.logger.info(f"File appears to be a split part already: {basename}")
+            # We could add a warning or special handling here
+
         # Determine file type and use appropriate handler
         file_path = str(file_path)  # Ensure string
         _, ext = os.path.splitext(file_path.lower())
-        
+
         try:
             if ext == ".docx":
                 return self._process_docx(file_path, callback)
@@ -68,15 +78,15 @@ class DocumentSplitter:
             self.logger.exception(f"Error processing {file_path}: {str(e)}")
             result["message"] = f"Error: {str(e)}"
             return result
-    
+
     def _process_docx(self, file_path: str, callback=None) -> Dict:
         """
         Process a DOCX file.
-        
+
         Args:
             file_path (str): Path to DOCX file
             callback (callable): Progress callback
-            
+
         Returns:
             dict: Processing results
         """
@@ -88,23 +98,23 @@ class DocumentSplitter:
             "parts_created": 0,
             "output_files": []
         }
-        
+
         try:
             # Load document
             if callback:
                 callback("loading", 0, f"Loading {os.path.basename(file_path)}...")
-                
+
             doc = Document(file_path)
-            
+
             # Count total words
             paragraphs = list(self._get_docx_paragraphs(doc))
             total_words = sum(utils.count_words(p.text) for p in paragraphs)
             result["total_words"] = total_words
-            
+
             # Check if splitting is needed
             max_words = self.settings.get("max_words")
             skip_under_limit = self.settings.get("skip_under_limit")
-            
+
             if total_words <= max_words and skip_under_limit:
                 msg = f"Skipped: {os.path.basename(file_path)} (only {utils.format_word_count(total_words)} words)"
                 result["message"] = msg
@@ -112,92 +122,109 @@ class DocumentSplitter:
                 if callback:
                     callback("skipped", 100, msg)
                 return result
-            
+
             # Prepare for splitting
-            output_folder = self.settings.get("output_folder")
+            # Use current_output_folder instead of settings.get("output_folder")
+            output_folder = self.current_output_folder
             preserve_formatting = self.settings.get("preserve_formatting")
-            
+
             # Start splitting
             part_num = 1
             current_doc = Document()
             current_words = 0
             progress_count = 0
-            
+
             for i, para in enumerate(paragraphs):
                 # Calculate progress
                 progress = min(100, int((i / len(paragraphs)) * 100))
                 if callback and progress > progress_count:
                     progress_count = progress
                     callback("processing", progress, f"Processing paragraph {i+1} of {len(paragraphs)}...")
-                
+
                 # Get word count for this paragraph
                 para_words = utils.count_words(para.text)
-                
+
+                # Skip empty paragraphs
+                if para_words == 0 and not para.text.strip():
+                    continue
+
                 # Check if adding this paragraph would exceed the limit
                 if current_words + para_words > max_words and current_words > 0:
                     # Save current document
                     output_path = utils.get_output_filename(file_path, part_num, output_folder)
                     if callback:
                         callback("saving", progress, f"Saving part {part_num}...")
-                    
+
                     current_doc.save(output_path)
                     result["output_files"].append(str(output_path))
-                    
+
                     # Start a new document
                     part_num += 1
                     current_doc = Document()
                     current_words = 0
-                
+
                 # Add paragraph to current document
                 if preserve_formatting:
                     # Add with as much formatting as possible
-                    p = current_doc.add_paragraph()
+                    new_para = current_doc.add_paragraph()
+                    # Clone the paragraph style if available
+                    if hasattr(para, 'style') and para.style:
+                        new_para.style = para.style
+
                     # Try to preserve basic formatting (bold, italic, etc.)
                     for run in para.runs:
-                        r = p.add_run(run.text)
+                        r = new_para.add_run(run.text)
                         r.bold = run.bold
                         r.italic = run.italic
                         r.underline = run.underline
+
+                        # Clone other run properties if available
+                        if hasattr(run, 'font') and run.font:
+                            if hasattr(run.font, 'size') and run.font.size:
+                                r.font.size = run.font.size
+                            if hasattr(run.font, 'name') and run.font.name:
+                                r.font.name = run.font.name
                 else:
-                    # Add as plain text
-                    current_doc.add_paragraph(para.text)
-                
+                    # Add as plain text - ensure no extra periods
+                    text = para.text.strip()
+                    current_doc.add_paragraph(text)
+
                 current_words += para_words
-            
+
             # Save the last part
             if current_words > 0:
                 output_path = utils.get_output_filename(file_path, part_num, output_folder)
                 if callback:
                     callback("saving", 100, f"Saving part {part_num}...")
-                
+
                 current_doc.save(output_path)
                 result["output_files"].append(str(output_path))
-            
+
             # Update result
             result["parts_created"] = part_num
             result["success"] = True
             result["message"] = f"Split into {part_num} parts ({utils.format_word_count(total_words)} words)"
-            
+
             if callback:
                 callback("complete", 100, result["message"])
-                
+
             return result
-                
+
         except Exception as e:
             self.logger.exception(f"Error processing DOCX {file_path}: {str(e)}")
             result["message"] = f"Error: {str(e)}"
             if callback:
                 callback("error", 100, f"Error: {str(e)}")
             return result
-    
+
     def _process_txt(self, file_path: str, callback=None) -> Dict:
         """
         Process a TXT file.
-        
+
         Args:
             file_path (str): Path to TXT file
             callback (callable): Progress callback
-            
+
         Returns:
             dict: Processing results
         """
@@ -209,31 +236,31 @@ class DocumentSplitter:
             "parts_created": 0,
             "output_files": []
         }
-        
+
         try:
             # Load document
             if callback:
                 callback("loading", 0, f"Loading {os.path.basename(file_path)}...")
-                
+
             with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
                 content = f.read()
-                
+
             # Split into paragraphs (by double newline or single newline)
             paragraphs = content.split('\n\n')
             if len(paragraphs) == 1:  # If no double newlines, try single newlines
                 paragraphs = content.split('\n')
-            
-            # Remove empty paragraphs
+
+            # Remove empty paragraphs and clean up each paragraph
             paragraphs = [p.strip() for p in paragraphs if p.strip()]
-            
+
             # Count total words
             total_words = sum(utils.count_words(p) for p in paragraphs)
             result["total_words"] = total_words
-            
+
             # Check if splitting is needed
             max_words = self.settings.get("max_words")
             skip_under_limit = self.settings.get("skip_under_limit")
-            
+
             if total_words <= max_words and skip_under_limit:
                 msg = f"Skipped: {os.path.basename(file_path)} (only {utils.format_word_count(total_words)} words)"
                 result["message"] = msg
@@ -241,82 +268,89 @@ class DocumentSplitter:
                 if callback:
                     callback("skipped", 100, msg)
                 return result
-            
+
             # Prepare for splitting
-            output_folder = self.settings.get("output_folder")
-            
+            # Use current_output_folder instead of settings.get("output_folder")
+            output_folder = self.current_output_folder
+
             # Start splitting
             part_num = 1
             current_content = []
             current_words = 0
             progress_count = 0
-            
+
             for i, para in enumerate(paragraphs):
                 # Calculate progress
                 progress = min(100, int((i / len(paragraphs)) * 100))
                 if callback and progress > progress_count:
                     progress_count = progress
                     callback("processing", progress, f"Processing paragraph {i+1} of {len(paragraphs)}...")
-                
+
                 # Get word count for this paragraph
                 para_words = utils.count_words(para)
-                
+
                 # Check if adding this paragraph would exceed the limit
                 if current_words + para_words > max_words and current_words > 0:
                     # Save current content
                     output_path = utils.get_output_filename(file_path, part_num, output_folder)
                     if callback:
                         callback("saving", progress, f"Saving part {part_num}...")
-                    
+
+                    # Join with clean separators - ensure no extra line breaks
+                    output_text = '\n\n'.join(current_content)
+
                     with open(output_path, 'w', encoding='utf-8') as f:
-                        f.write('\n\n'.join(current_content))
-                    
+                        f.write(output_text)
+
                     result["output_files"].append(str(output_path))
-                    
+
                     # Start a new document
                     part_num += 1
                     current_content = []
                     current_words = 0
-                
-                # Add paragraph to current content
-                current_content.append(para)
+
+                # Add paragraph to current content - ensure it's clean
+                current_content.append(para.strip())
                 current_words += para_words
-            
+
             # Save the last part
             if current_content:
                 output_path = utils.get_output_filename(file_path, part_num, output_folder)
                 if callback:
                     callback("saving", 100, f"Saving part {part_num}...")
-                
+
+                # Join with clean separators
+                output_text = '\n\n'.join(current_content)
+
                 with open(output_path, 'w', encoding='utf-8') as f:
-                    f.write('\n\n'.join(current_content))
-                
+                    f.write(output_text)
+
                 result["output_files"].append(str(output_path))
-            
+
             # Update result
             result["parts_created"] = part_num
             result["success"] = True
             result["message"] = f"Split into {part_num} parts ({utils.format_word_count(total_words)} words)"
-            
+
             if callback:
                 callback("complete", 100, result["message"])
-                
+
             return result
-                
+
         except Exception as e:
             self.logger.exception(f"Error processing TXT {file_path}: {str(e)}")
             result["message"] = f"Error: {str(e)}"
             if callback:
                 callback("error", 100, f"Error: {str(e)}")
             return result
-    
+
     def _get_docx_paragraphs(self, doc) -> Generator:
         """
         Extract all paragraphs from a DOCX document, including tables.
-        
+
         Args:
             doc: Document object
-            
+
         Yields:
             Paragraph objects
         """
@@ -324,7 +358,7 @@ class DocumentSplitter:
         for para in doc.paragraphs:
             if para.text.strip():  # Skip empty paragraphs
                 yield para
-        
+
         # Process tables
         for table in doc.tables:
             for row in table.rows:
