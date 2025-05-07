@@ -1,0 +1,8 @@
+{
+    "max_words": 100000,
+    "output_folder": "./output",
+    "preserve_formatting": true,
+    "skip_under_limit": true,
+    "dark_mode": null,
+    "check_updates": true
+}

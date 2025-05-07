@@ -15,3 +15,128 @@ AttributeError: module 'PySimpleGUI' has no attribute 'theme'
 2025-05-07 12:18:07,127 - settings - INFO - No settings file found, using defaults
 2025-05-07 12:18:07,127 - root - INFO - Settings loaded
 2025-05-07 12:18:07,127 - root - INFO - Starting GUI
+2025-05-07 12:21:20,229 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 12:21:20,229 - settings - INFO - No settings file found, using defaults
+2025-05-07 12:21:20,230 - root - INFO - Settings loaded
+2025-05-07 12:21:20,230 - root - INFO - Starting GUI
+2025-05-07 12:21:20,337 - root - ERROR - Unhandled exception: bad event type or keysym "Drop"
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/main.py", line 34, in main
+    app = ManusplitGUI(settings)
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 27, in __init__
+    self._create_window()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 70, in _create_window
+    self.root.bind("<Drop>", self._handle_drop)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tkinter/__init__.py", line 1392, in bind
+    return self._bind(('bind', self._w), sequence, func, add)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tkinter/__init__.py", line 1346, in _bind
+    self.tk.call(what + (sequence, cmd))
+_tkinter.TclError: bad event type or keysym "Drop"
+2025-05-07 12:24:21,377 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 12:24:21,377 - settings - INFO - No settings file found, using defaults
+2025-05-07 12:24:21,377 - root - INFO - Settings loaded
+2025-05-07 12:24:21,377 - root - INFO - Starting GUI
+2025-05-07 12:24:21,479 - gui - INFO - Drag and drop functionality not available
+2025-05-07 12:25:26,468 - root - INFO - Application exiting normally
+2025-05-07 12:30:00,044 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 12:30:00,044 - settings - INFO - No settings file found, using defaults
+2025-05-07 12:30:00,044 - root - INFO - Settings loaded
+2025-05-07 12:30:00,044 - root - INFO - Starting GUI
+2025-05-07 12:30:00,142 - gui - INFO - Drag and drop functionality not available
+2025-05-07 12:30:05,004 - root - INFO - Application exiting normally
+2025-05-07 12:33:48,825 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 12:33:48,826 - settings - INFO - No settings file found, using defaults
+2025-05-07 12:33:48,826 - root - INFO - Settings loaded
+2025-05-07 12:33:48,826 - root - INFO - Starting GUI
+2025-05-07 12:33:49,000 - gui - WARNING - TkDND not available, drag-and-drop will be limited
+2025-05-07 12:36:55,064 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 12:36:55,064 - settings - INFO - No settings file found, using defaults
+2025-05-07 12:36:55,064 - root - INFO - Settings loaded
+2025-05-07 12:36:55,064 - root - INFO - Starting GUI
+2025-05-07 12:39:09,961 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 12:39:09,961 - settings - INFO - No settings file found, using defaults
+2025-05-07 12:39:09,961 - root - INFO - Settings loaded
+2025-05-07 12:39:09,961 - root - INFO - Starting GUI
+2025-05-07 12:39:10,065 - gui - INFO - Application started
+2025-05-07 12:39:10,065 - gui - INFO - Python version: 3.9.6 (default, Mar 12 2025, 20:22:46) 
+[Clang 17.0.0 (clang-1700.0.13.3)]
+2025-05-07 12:39:10,066 - gui - INFO - Tkinter version: 8.5
+2025-05-07 12:39:10,073 - gui - INFO - Settings: {'max_words': 50000, 'output_folder': './output', 'preserve_formatting': True, 'skip_under_limit': True, 'dark_mode': None, 'check_updates': True}
+2025-05-07 12:39:12,645 - gui - INFO - Opening settings dialog
+2025-05-07 12:39:18,675 - gui - INFO - Browse button clicked
+2025-05-07 12:39:20,560 - gui - INFO - Selected files: ('/Users/mw/Documents/eBooks/Keener, Craig S.;/The Gospel of Matthew (29)/The Gospel of Matthew - Keener, Craig S.;.docx',)
+2025-05-07 12:39:20,562 - gui - INFO - Processing file: /Users/mw/Documents/eBooks/Keener, Craig S.;/The Gospel of Matthew (29)/The Gospel of Matthew - Keener, Craig S.;.docx
+2025-05-07 12:39:26,248 - gui - INFO - Success: Split into 10 parts (475,559 words)
+2025-05-07 12:39:26,249 - gui - INFO - Created 10 output files:
+2025-05-07 12:39:26,249 - gui - INFO -   - output/The Gospel of Matthew - Keener, Craig S.; - Part 1.docx
+2025-05-07 12:39:26,250 - gui - INFO -   - output/The Gospel of Matthew - Keener, Craig S.; - Part 2.docx
+2025-05-07 12:39:26,251 - gui - INFO -   - output/The Gospel of Matthew - Keener, Craig S.; - Part 3.docx
+2025-05-07 12:39:26,251 - gui - INFO -   - output/The Gospel of Matthew - Keener, Craig S.; - Part 4.docx
+2025-05-07 12:39:26,252 - gui - INFO -   - output/The Gospel of Matthew - Keener, Craig S.; - Part 5.docx
+2025-05-07 12:39:26,252 - gui - INFO -   - output/The Gospel of Matthew - Keener, Craig S.; - Part 6.docx
+2025-05-07 12:39:26,253 - gui - INFO -   - output/The Gospel of Matthew - Keener, Craig S.; - Part 7.docx
+2025-05-07 12:39:26,254 - gui - INFO -   - output/The Gospel of Matthew - Keener, Craig S.; - Part 8.docx
+2025-05-07 12:39:26,254 - gui - INFO -   - output/The Gospel of Matthew - Keener, Craig S.; - Part 9.docx
+2025-05-07 12:39:26,255 - gui - INFO -   - output/The Gospel of Matthew - Keener, Craig S.; - Part 10.docx
+2025-05-07 12:39:40,137 - gui - INFO - Opening settings dialog
+2025-05-07 12:48:43,596 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 12:48:43,596 - settings - INFO - No settings file found, using defaults
+2025-05-07 12:48:43,596 - root - INFO - Settings loaded
+2025-05-07 12:48:43,596 - root - INFO - Starting GUI
+2025-05-07 12:55:34,944 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 12:55:34,944 - settings - INFO - No settings file found, using defaults
+2025-05-07 12:55:34,944 - root - INFO - Settings loaded
+2025-05-07 12:55:34,944 - root - INFO - Starting GUI
+2025-05-07 12:55:37,691 - root - ERROR - Unhandled exception: invalid command name ".!canvas"
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/main.py", line 34, in main
+    app = ManusplitApp(settings)  # Updated to use the new GUI class
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 28, in __init__
+    self._create_window()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 45, in _create_window
+    self._create_layout()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 201, in _create_layout
+    settings_img = self._create_gear_icon()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 337, in _create_gear_icon
+    canvas.postscript(file="temp.ps", colormode="color")
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/tkinter/__init__.py", line 2936, in postscript
+    return self.tk.call((self._w, 'postscript') +
+_tkinter.TclError: invalid command name ".!canvas"
+2025-05-07 12:55:59,941 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 12:55:59,941 - settings - INFO - No settings file found, using defaults
+2025-05-07 12:55:59,941 - root - INFO - Settings loaded
+2025-05-07 12:55:59,941 - root - INFO - Starting GUI
+2025-05-07 12:56:26,161 - settings - INFO - Settings saved successfully
+2025-05-07 12:56:36,789 - settings - INFO - Settings saved successfully
+2025-05-07 13:11:29,476 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 13:11:29,636 - settings - INFO - Settings loaded successfully
+2025-05-07 13:11:29,636 - root - INFO - Settings loaded
+2025-05-07 13:12:23,980 - settings - INFO - Settings saved successfully
+2025-05-07 13:30:32,387 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 13:30:32,487 - settings - ERROR - Error loading settings: Extra data: line 1 column 3 (char 2)
+2025-05-07 13:30:32,487 - root - INFO - Settings loaded
+2025-05-07 13:36:52,833 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 13:36:52,930 - settings - ERROR - Error loading settings: Extra data: line 1 column 3 (char 2)
+2025-05-07 13:36:52,930 - root - INFO - Settings loaded
+2025-05-07 13:37:47,394 - settings - INFO - Settings saved successfully
+2025-05-07 13:39:29,224 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 13:39:29,319 - settings - INFO - Settings loaded successfully
+2025-05-07 13:39:29,320 - root - INFO - Settings loaded
+2025-05-07 13:45:16,283 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 13:45:16,386 - settings - INFO - Settings loaded successfully
+2025-05-07 13:45:16,386 - root - INFO - Settings loaded
+2025-05-07 13:51:08,874 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 13:51:08,998 - settings - INFO - Settings loaded successfully
+2025-05-07 13:51:08,998 - root - INFO - Settings loaded
+2025-05-07 13:56:30,212 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 13:56:30,316 - settings - INFO - Settings loaded successfully
+2025-05-07 13:56:30,316 - root - INFO - Settings loaded
+2025-05-07 14:11:42,320 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 14:11:42,446 - settings - INFO - Settings loaded successfully
+2025-05-07 14:11:42,446 - root - INFO - Settings loaded
+2025-05-07 14:14:12,108 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 14:14:12,232 - settings - INFO - Settings loaded successfully
+2025-05-07 14:14:12,232 - root - INFO - Settings loaded
+2025-05-07 14:16:14,313 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 14:16:14,417 - settings - INFO - Settings loaded successfully
+2025-05-07 14:16:14,417 - root - INFO - Settings loaded
