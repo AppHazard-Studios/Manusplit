@@ -1,0 +1,13 @@
+2025-05-07 11:28:31,000 - root - INFO - Starting Manusplit v1.0.0
+2025-05-07 11:28:31,000 - settings - INFO - No settings file found, using defaults
+2025-05-07 11:28:31,000 - root - INFO - Settings loaded
+2025-05-07 11:28:31,000 - root - INFO - Starting GUI
+2025-05-07 11:28:31,015 - root - ERROR - Unhandled exception: module 'PySimpleGUI' has no attribute 'theme'
+Traceback (most recent call last):
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/main.py", line 34, in main
+    app = ManusplitGUI(settings)
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 40, in __init__
+    self._create_window()
+  File "/Users/mw/Documents/Documents/Dev/Manusplit/gui.py", line 57, in _create_window
+    sg.theme('DarkGrey9')
+AttributeError: module 'PySimpleGUI' has no attribute 'theme'
