@@ -24,6 +24,10 @@ def main():
         # Create PyQt application
         from PyQt6.QtWidgets import QApplication
         app = QApplication(sys.argv)
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icon.png")
+        if os.path.exists(icon_path):
+            from PyQt6.QtGui import QIcon
+            app.setWindowIcon(QIcon(icon_path))
 
         # Load settings
         settings = Settings()
