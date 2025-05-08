@@ -1,8 +1,0 @@
-{
-    "max_words": 100000,
-    "output_folder": "/Users/mw/Documents",
-    "preserve_formatting": true,
-    "skip_under_limit": false,
-    "dark_mode": null,
-    "check_updates": true
-}
