@@ -10,7 +10,7 @@ from pathlib import Path
 # Local imports
 from settings import Settings
 from utils import setup_logging
-from gui import ManusplitApp  # Updated to use the new minimalist UI
+from gui import ManusplitApp  # Updated to use the new class name
 import version
 
 
@@ -37,7 +37,7 @@ def main():
         app.setStyle("Fusion")
 
         # Create and show the main window
-        window = ManusplitApp(settings)
+        window = ManusplitApp(settings)  # Use the new class name here too
         window.show()
 
         # Run the application

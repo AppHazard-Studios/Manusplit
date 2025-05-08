@@ -1,20 +1,19 @@
 """
-Manusplit - GUI with properly aligned columns and improved layout.
+Manusplit - Elegant, minimal interface for document splitting.
 """
 import sys
 import os
 import logging
 import json
+import traceback
 from pathlib import Path
 
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                            QHBoxLayout, QLabel, QPushButton, QFileDialog,
-                           QSpinBox, QLineEdit, QCheckBox, QDialog, QFormLayout,
-                           QTableWidget, QTableWidgetItem, QHeaderView, QFrame,
-                           QAbstractItemView, QSizePolicy, QGridLayout)
-from PyQt6.QtGui import (QFont, QIcon, QDragEnterEvent, QDropEvent, QColor, QPalette,
-                       QCursor)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QTimer, QSize, QEvent
+                           QFrame, QScrollArea, QLineEdit)
+from PyQt6.QtGui import (QFont, QFontMetrics, QDragEnterEvent, QDropEvent,
+                       QCursor, QPainter, QColor, QIntValidator)
+from PyQt6.QtCore import (Qt, QThread, pyqtSignal, QObject, QSize, QPoint)
 
 # Import your existing components
 from settings import Settings
@@ -23,14 +22,42 @@ from utils import setup_logging
 import version
 
 
+class ElegantFrame(QFrame):
+    """A beautifully styled frame with subtle shadows and rounded corners."""
+
+    def __init__(self, parent=None, radius=12, bg_color="#232323", shadow=True):
+        super().__init__(parent)
+        self.radius = radius
+        self.bg_color = bg_color
+        self.has_shadow = shadow
+        self.setStyleSheet(f"""
+            background-color: transparent;
+            border: none;
+        """)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+    def paintEvent(self, event):
+        """Custom paint event to draw rounded corners and shadows."""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Draw shadow if enabled
+        if self.has_shadow:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(0, 0, 0, 20))
+            painter.drawRoundedRect(self.rect().adjusted(2, 2, -2, -2), self.radius, self.radius)
+
+        # Draw main background
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(self.bg_color))
+        painter.drawRoundedRect(self.rect(), self.radius, self.radius)
+
+
 class Worker(QObject):
     """Worker thread to process files in the background."""
-
-    # Define signals for communication with main thread
-    progressUpdated = pyqtSignal(int)
-    resultReady = pyqtSignal(dict)
-    fileProcessingStarted = pyqtSignal(int)  # Signal with row index
-    fileProcessingComplete = pyqtSignal(int, dict)  # Row index and result
+    fileProgress = pyqtSignal(str, int)  # filepath, progress percentage
+    fileComplete = pyqtSignal(str, int)  # filepath, parts created
+    fileError = pyqtSignal(str, str)     # filepath, error message
     finished = pyqtSignal()
 
     def __init__(self, splitter, files, settings):
@@ -43,32 +70,29 @@ class Worker(QObject):
     def process(self):
         """Process files with the document splitter."""
         try:
-            total_files = len(self.files)
+            for file_path in self.files:
+                try:
+                    # Create an output folder for this file
+                    self._prepare_output_folder(file_path)
 
-            for i, file in enumerate(self.files):
-                # Calculate overall progress
-                progress = int((i / total_files) * 100)
-                self.progressUpdated.emit(progress)
+                    # Process the file
+                    result = self.splitter.process_file(
+                        file_path,
+                        callback=lambda status, progress, message:
+                            self.fileProgress.emit(file_path, progress)
+                    )
 
-                # Emit signal that we're starting to process this file
-                row = i  # Assuming files are added to table in same order
-                self.fileProcessingStarted.emit(row)
-
-                # Create an output folder for this file
-                self._prepare_output_folder(file)
-
-                # Process the file using the splitter
-                result = self.splitter.process_file(file, callback=self.splitter_callback)
-
-                # Emit result for this specific file
-                self.fileProcessingComplete.emit(row, result)
-
-            # Complete processing
-            self.progressUpdated.emit(100)
+                    # Report completion
+                    if result["success"]:
+                        self.fileComplete.emit(file_path, result["parts_created"])
+                    else:
+                        self.fileError.emit(file_path, result["message"])
+                except Exception as e:
+                    self.logger.exception(f"Error processing file {file_path}: {str(e)}")
+                    self.fileError.emit(file_path, str(e))
 
         except Exception as e:
             self.logger.exception(f"Error in processing thread: {str(e)}")
-
         finally:
             self.finished.emit()
 
@@ -79,7 +103,7 @@ class Worker(QObject):
             basename = os.path.basename(file_path)
             filename, _ = os.path.splitext(basename)
 
-            # Create a clean folder name (remove invalid chars)
+            # Create a clean folder name
             folder_name = "".join(c for c in filename if c.isalnum() or c in [' ', '-', '_']).strip()
             if not folder_name:
                 folder_name = "Document"
@@ -106,857 +130,783 @@ class Worker(QObject):
             # Fall back to main output folder
             self.splitter.current_output_folder = self.settings.get("output_folder")
 
-    def splitter_callback(self, status, progress, message):
-        """Callback for the DocumentSplitter with minimal updates."""
-        # We don't update status anymore - the table cells will show progress
-        self.progressUpdated.emit(progress)
 
+class FileCard(QWidget):
+    """An elegantly designed file card."""
 
-class SettingsDialog(QDialog):
-    """Settings dialog for Manusplit."""
-
-    def __init__(self, settings, parent=None):
+    def __init__(self, file_path, parent=None):
         super().__init__(parent)
-        self.settings = settings
-        self.logger = logging.getLogger(__name__)
-        self.setWindowTitle("Settings")
-        self.resize(400, 250)
+        self.file_path = file_path
+        self.basename = os.path.basename(file_path)
+        self.extension = os.path.splitext(self.basename)[1][1:].upper()
+        self.parts_count = 0
+        self.is_processing = False
+        self.progress = 0
+
         self.setup_ui()
 
     def setup_ui(self):
-        """Set up the settings dialog UI."""
-        # Main layout with clean margins
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(16)
+        """Set up the file card UI."""
+        # Main layout with larger margins for cleaner look
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 10, 16, 10)
+        layout.setSpacing(12)
 
-        # Form layout with proper proportions
-        form = QFormLayout()
-        form.setSpacing(12)
-        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
-
-        # Word limit with proper sizing
-        limit_label = QLabel("Maximum words per file:")
-        limit_label.setStyleSheet("color: white; font-size: 14px;")
-
-        self.max_words = QSpinBox()
-        self.max_words.setRange(1000, 100000)
-        self.max_words.setValue(self.settings.get("max_words"))
-        self.max_words.setSingleStep(1000)
-        self.max_words.setFixedWidth(100)  # Smaller fixed width
-        self.max_words.setFixedHeight(28)  # Fixed height to match text
-        self.max_words.setStyleSheet("""
-            QSpinBox {
-                background-color: #262626;
-                color: white;
-                border: 1px solid #444444;
-                border-radius: 6px;
-                padding: 4px;
-                font-size: 14px;
-            }
-            QSpinBox::up-button, QSpinBox::down-button {
-                subcontrol-origin: border;
-                width: 16px;
-                border-radius: 3px;
-            }
+        # Base widget is transparent
+        self.setStyleSheet("""
+            background-color: transparent;
+            color: #ffffff;
         """)
-        form.addRow(limit_label, self.max_words)
 
-        # Output folder with proper sizing
-        folder_label = QLabel("Output folder:")
-        folder_label.setStyleSheet("color: white; font-size: 14px;")
+        # Create background frame
+        self.bg_frame = ElegantFrame(self, radius=10, bg_color="#262626")
+        self.bg_frame.setGeometry(self.rect())
 
-        folder_widget = QWidget()
-        folder_layout = QHBoxLayout(folder_widget)
-        folder_layout.setContentsMargins(0, 0, 0, 0)
-        folder_layout.setSpacing(8)
-
-        self.output_folder = QLineEdit()
-        self.output_folder.setText(self.settings.get("output_folder"))
-        self.output_folder.setFixedHeight(28)  # Fixed height to match text
-        self.output_folder.setStyleSheet("""
-            QLineEdit {
-                background-color: #262626;
-                color: white;
-                border: 1px solid #444444;
-                border-radius: 6px;
-                padding: 4px 8px;
-                font-size: 14px;
-            }
+        # File type indicator
+        type_container = QWidget()
+        type_container.setFixedSize(34, 34)
+        type_container.setStyleSheet("""
+            background-color: #3a3a3a;
+            border-radius: 17px;
         """)
-        folder_layout.addWidget(self.output_folder)
 
-        browse_btn = QPushButton("Browse")
-        browse_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        browse_btn.setFixedHeight(28)  # Fixed height to match text
-        browse_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3d3d3d;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 4px 12px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #4d4d4d;
-            }
-            QPushButton:pressed {
-                background-color: #2d2d2d;
-            }
-        """)
-        browse_btn.clicked.connect(self.browse_folder)
-        folder_layout.addWidget(browse_btn)
+        type_layout = QVBoxLayout(type_container)
+        type_layout.setContentsMargins(0, 0, 0, 0)
 
-        form.addRow(folder_label, folder_widget)
-
-        # Add form to main layout
-        layout.addLayout(form)
-        layout.addSpacing(8)
-
-        # Checkboxes
-        self.preserve_formatting = QCheckBox("Preserve document formatting")
-        self.preserve_formatting.setChecked(self.settings.get("preserve_formatting"))
-        self.preserve_formatting.setStyleSheet("""
-            QCheckBox {
-                color: white;
-                font-size: 14px;
-                spacing: 8px;
-            }
-            QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
-                background-color: #262626;
-                border: 1px solid #444444;
-                border-radius: 4px;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #0078d4;
-                border: 1px solid #0078d4;
-            }
-        """)
-        layout.addWidget(self.preserve_formatting)
-
-        self.skip_under_limit = QCheckBox("Skip files under word limit")
-        self.skip_under_limit.setChecked(self.settings.get("skip_under_limit"))
-        self.skip_under_limit.setStyleSheet("""
-            QCheckBox {
-                color: white;
-                font-size: 14px;
-                spacing: 8px;
-            }
-            QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
-                background-color: #262626;
-                border: 1px solid #444444;
-                border-radius: 4px;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #0078d4;
-                border: 1px solid #0078d4;
-            }
-        """)
-        layout.addWidget(self.skip_under_limit)
-
-        # Add spacer
-        layout.addStretch(1)
-
-        # Button row
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(12)
-
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        cancel_btn.setFixedHeight(32)  # Consistent height
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3d3d3d;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 6px 16px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #4d4d4d;
-            }
-            QPushButton:pressed {
-                background-color: #2d2d2d;
-            }
-        """)
-        cancel_btn.clicked.connect(self.reject)
-        button_layout.addWidget(cancel_btn)
-
-        save_btn = QPushButton("Save")
-        save_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        save_btn.setFixedHeight(32)  # Consistent height
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0078d4;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 6px 16px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #0086f0;
-            }
-            QPushButton:pressed {
-                background-color: #006aba;
-            }
-        """)
-        save_btn.clicked.connect(self.accept)
-        button_layout.addWidget(save_btn)
-
-        layout.addLayout(button_layout)
-
-    def browse_folder(self):
-        """Show dialog to select output folder."""
-        folder = QFileDialog.getExistingDirectory(self, "Select Output Folder")
-        if folder:
-            self.output_folder.setText(folder)
-
-    def save_settings(self):
-        """Save settings from dialog to Settings object."""
-        try:
-            self.settings.set("max_words", self.max_words.value())
-            self.settings.set("output_folder", self.output_folder.text())
-            self.settings.set("preserve_formatting", self.preserve_formatting.isChecked())
-            self.settings.set("skip_under_limit", self.skip_under_limit.isChecked())
-
-            # Save settings to disk
-            self.settings.save()
-            return True
-
-        except Exception as e:
-            self.logger.error(f"Failed to save settings: {str(e)}")
-            return False
-
-
-class FirstRunDialog(QDialog):
-    """Dialog shown on first run to select output location."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Welcome to Manusplit")
-        self.resize(500, 280)
-        self.output_path = os.path.join(os.path.expanduser("~"), "Documents", "Manusplit Files")
-        self.setup_ui()
-
-    def setup_ui(self):
-        """Set up the first run dialog UI."""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(20)
-
-        # Welcome message
-        welcome = QLabel("Welcome to Manusplit")
-        welcome.setStyleSheet("""
-            font-size: 24px;
+        self.type_label = QLabel(self.extension[:3])  # Limit to 3 chars
+        self.type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.type_label.setStyleSheet("""
+            color: #ffffff;
+            font-size: 11px;
             font-weight: 600;
-            color: white;
+            background-color: transparent;
         """)
-        layout.addWidget(welcome)
+        type_layout.addWidget(self.type_label)
 
-        # Description
-        desc = QLabel("A tool for splitting large documents into smaller parts.")
-        desc.setStyleSheet("""
-            font-size: 14px;
-            color: #cccccc;
-        """)
-        layout.addWidget(desc)
+        layout.addWidget(type_container)
 
-        # Separator
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
-        separator.setStyleSheet("background-color: #333333;")
-        separator.setFixedHeight(1)
-        layout.addWidget(separator)
-        layout.addSpacing(10)
+        # File details container
+        details_widget = QWidget()
+        details_layout = QVBoxLayout(details_widget)
+        details_layout.setContentsMargins(0, 0, 0, 0)
+        details_layout.setSpacing(2)
 
-        # Output folder section
-        folder_label = QLabel("Choose where to save your split documents:")
-        folder_label.setStyleSheet("""
-            font-size: 14px;
-            font-weight: 500;
-            color: white;
-        """)
-        layout.addWidget(folder_label)
-
-        # Folder selection widget
-        folder_widget = QWidget()
-        folder_layout = QHBoxLayout(folder_widget)
-        folder_layout.setContentsMargins(0, 0, 0, 0)
-        folder_layout.setSpacing(8)
-
-        self.folder_input = QLineEdit(self.output_path)
-        self.folder_input.setStyleSheet("""
-            QLineEdit {
-                background-color: #262626;
-                color: white;
-                border: 1px solid #444444;
-                border-radius: 6px;
-                padding: 8px;
-                font-size: 14px;
-            }
-        """)
-        folder_layout.addWidget(self.folder_input)
-
-        browse_btn = QPushButton("Browse")
-        browse_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        browse_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3d3d3d;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #4d4d4d;
-            }
-            QPushButton:pressed {
-                background-color: #2d2d2d;
-            }
-        """)
-        browse_btn.clicked.connect(self.browse_folder)
-        folder_layout.addWidget(browse_btn)
-
-        layout.addWidget(folder_widget)
-
-        # Note
-        note = QLabel("This folder will contain the split documents organized by file.")
-        note.setStyleSheet("""
+        # Filename
+        self.filename_label = QLabel(self._truncate_filename(self.basename, 250))
+        self.filename_label.setStyleSheet("""
+            color: #ffffff;
             font-size: 13px;
-            color: #aaaaaa;
-            font-style: italic;
+            font-weight: 500;
+            background-color: transparent;
         """)
-        layout.addWidget(note)
+        self.filename_label.setToolTip(self.basename)
+        details_layout.addWidget(self.filename_label)
 
-        # Add spacer
-        layout.addStretch(1)
+        # Status line
+        self.status_label = QLabel("Waiting")
+        self.status_label.setStyleSheet("""
+            color: #888888;
+            font-size: 12px;
+            background-color: transparent;
+        """)
+        details_layout.addWidget(self.status_label)
 
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(12)
+        layout.addWidget(details_widget, 1)  # Stretch
 
-        get_started = QPushButton("Get Started")
-        get_started.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        get_started.setStyleSheet("""
-            QPushButton {
-                background-color: #0078d4;
-                color: white;
+        # Progress count/parts
+        self.progress_label = QLabel("")
+        self.progress_label.setStyleSheet("""
+            color: #0078d4;
+            font-size: 14px;
+            font-weight: 600;
+            background-color: transparent;
+            padding-right: 4px;
+        """)
+        self.progress_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.progress_label.setFixedWidth(70)
+        layout.addWidget(self.progress_label)
+
+        # Update on resize
+        self.resizeEvent = self._on_resize
+
+    def _on_resize(self, event):
+        """Handle resize events."""
+        # Update frame size
+        self.bg_frame.setGeometry(self.rect())
+
+    def _truncate_filename(self, filename, max_width):
+        """Truncate filename to fit in the available width."""
+        metrics = QFontMetrics(self.font())
+        if metrics.horizontalAdvance(filename) <= max_width:
+            return filename
+
+        # Truncate the middle
+        base, ext = os.path.splitext(filename)
+        while metrics.horizontalAdvance(f"{base[:-3]}...{ext}") > max_width and len(base) > 10:
+            base = base[:-1]
+
+        return f"{base[:-3]}...{ext}"
+
+    def update_progress(self, progress):
+        """Update processing progress."""
+        self.progress = progress
+        self.is_processing = True
+
+        # Update labels
+        self.status_label.setText("Processing")
+        self.status_label.setStyleSheet("""
+            color: #0078d4;
+            font-size: 12px;
+            background-color: transparent;
+        """)
+
+        self.progress_label.setText(f"{progress}%")
+
+        # Progress-colored background - subtle gradient
+        color = self._interpolate_color("#1a3a5a", "#262626", progress/100)
+        self.bg_frame.bg_color = color
+        self.bg_frame.update()
+
+    def set_completed(self, parts_count):
+        """Mark as completed with parts count."""
+        self.parts_count = parts_count
+        self.is_processing = False
+
+        # Update labels
+        self.status_label.setText("Completed")
+        self.status_label.setStyleSheet("""
+            color: #2fcc71;
+            font-size: 12px;
+            background-color: transparent;
+        """)
+
+        self.progress_label.setText(f"{parts_count} parts")
+        self.progress_label.setStyleSheet("""
+            color: #2fcc71;
+            font-size: 14px;
+            font-weight: 600;
+            background-color: transparent;
+            padding-right: 4px;
+        """)
+
+        # Reset background with slight green tint
+        self.bg_frame.bg_color = "#26322a"
+        self.bg_frame.update()
+
+    def set_error(self, error_message):
+        """Mark as error with message."""
+        self.is_processing = False
+
+        # Update labels
+        self.status_label.setText("Error")
+        self.status_label.setStyleSheet("""
+            color: #e74c3c;
+            font-size: 12px;
+            background-color: transparent;
+        """)
+
+        self.progress_label.setText("Failed")
+        self.progress_label.setStyleSheet("""
+            color: #e74c3c;
+            font-size: 14px;
+            font-weight: 600;
+            background-color: transparent;
+            padding-right: 4px;
+        """)
+        self.status_label.setToolTip(error_message)
+
+        # Error background
+        self.bg_frame.bg_color = "#32262a"
+        self.bg_frame.update()
+
+    def _interpolate_color(self, color1, color2, factor):
+        """Interpolate between two colors."""
+        r1, g1, b1 = int(color1[1:3], 16), int(color1[3:5], 16), int(color1[5:7], 16)
+        r2, g2, b2 = int(color2[1:3], 16), int(color2[3:5], 16), int(color2[5:7], 16)
+
+        r = int(r1 + factor * (r2 - r1))
+        g = int(g1 + factor * (g2 - g1))
+        b = int(b1 + factor * (b2 - b1))
+
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+
+class ElegantButton(QPushButton):
+    """Beautifully styled button with subtle hover effects."""
+
+    def __init__(self, text, parent=None, primary=False):
+        super().__init__(text, parent)
+        self.is_primary = primary
+        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+        if primary:
+            bg_color = "#0078d4"
+            hover_color = "#0086f0"
+            pressed_color = "#006aba"
+        else:
+            bg_color = "#323232"
+            hover_color = "#424242"
+            pressed_color = "#282828"
+
+        self.bg_color = bg_color
+        self.hover_color = hover_color
+        self.pressed_color = pressed_color
+
+        # Make transparent so we can draw our own background
+        self.setStyleSheet(f"""
+            QPushButton {{
+                color: #ffffff;
+                background-color: transparent;
                 border: none;
-                border-radius: 6px;
-                padding: 12px 24px;
-                font-size: 14px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #0086f0;
-            }
-            QPushButton:pressed {
-                background-color: #006aba;
-            }
+                padding: 6px 12px;
+                font-size: 13px;
+                font-weight: {600 if primary else 400};
+                text-align: center;
+            }}
         """)
-        get_started.clicked.connect(self.accept)
-        button_layout.addWidget(get_started)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-        layout.addLayout(button_layout)
+    def paintEvent(self, event):
+        """Custom paint event to draw rounded button."""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    def browse_folder(self):
-        """Allow user to select output folder."""
-        folder = QFileDialog.getExistingDirectory(self, "Select Output Folder")
-        if folder:
-            self.folder_input.setText(folder)
-            self.output_path = self.folder_input.text()
+        # Draw button background
+        painter.setPen(Qt.PenStyle.NoPen)
+        if self.isDown():
+            painter.setBrush(QColor(self.pressed_color))
+        elif self.underMouse():
+            painter.setBrush(QColor(self.hover_color))
+        else:
+            painter.setBrush(QColor(self.bg_color))
+
+        painter.drawRoundedRect(self.rect(), 8, 8)
+
+        # Pass to standard button painting for text/icon
+        super().paintEvent(event)
+
+
+class WordLimitInput(QWidget):
+    """Elegant word limit input with label."""
+
+    valueChanged = pyqtSignal(int)
+
+    def __init__(self, initial_value=50000, parent=None):
+        super().__init__(parent)
+        self.value = initial_value
+        self.setup_ui()
+
+    def setup_ui(self):
+        """Set up the word limit input UI."""
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        # Label
+        self.label = QLabel("Max words:")
+        self.label.setStyleSheet("""
+            color: #aaaaaa;
+            font-size: 13px;
+            background-color: transparent;
+        """)
+        layout.addWidget(self.label)
+
+        # Input field container
+        input_container = QWidget()
+        input_container.setFixedSize(70, 28)
+        input_container.setStyleSheet("""
+            background-color: #323232;
+            border-radius: 6px;
+        """)
+
+        input_layout = QHBoxLayout(input_container)
+        input_layout.setContentsMargins(4, 0, 4, 0)
+        input_layout.setSpacing(0)
+
+        # Text input for words
+        self.input = QLineEdit(str(self.value))
+        self.input.setStyleSheet("""
+            color: #ffffff;
+            font-size: 13px;
+            background-color: transparent;
+            border: none;
+            padding: 0;
+        """)
+        self.input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Only allow integers
+        validator = QIntValidator(1000, 1000000)
+        self.input.setValidator(validator)
+
+        self.input.textChanged.connect(self._value_changed)
+        input_layout.addWidget(self.input)
+
+        layout.addWidget(input_container)
+
+    def _value_changed(self, text):
+        """Handle value changes."""
+        if text:
+            try:
+                value = int(text)
+                self.value = value
+                self.valueChanged.emit(value)
+            except ValueError:
+                pass
+
+    def get_value(self):
+        """Get the current value."""
+        return self.value
+
+    def set_value(self, value):
+        """Set a new value."""
+        self.value = value
+        self.input.setText(str(value))
+
+
+class DestinationButton(ElegantButton):
+    """Button showing the current destination folder."""
+
+    def __init__(self, path, parent=None):
+        # Format path for display
+        display_path = self._format_path(path)
+        super().__init__(f"Save to: {display_path}", parent)
+        self.full_path = path
+        self.setToolTip(path)
+
+    def _format_path(self, path):
+        """Format path for display - shorten if needed."""
+        if len(path) > 30:
+            # Get last folder name
+            parts = path.split(os.path.sep)
+            last_part = parts[-1] if parts[-1] else parts[-2]  # Handle trailing slash
+            return f".../{last_part}"
+        return path
+
+    def update_path(self, path):
+        """Update the path."""
+        self.full_path = path
+        self.setText(f"Save to: {self._format_path(path)}")
+        self.setToolTip(path)
 
 
 class ManusplitApp(QMainWindow):
-    """Modern UI for Manusplit with proper alignment and spacing."""
-
-    # Maximum filename length to display
-    MAX_FILENAME_LENGTH = 40
+    """Direct, streamlined UI for Manusplit."""
 
     def __init__(self, settings):
         super().__init__()
         self.settings = settings
+
+        # Default to always preserve formatting and process all files
+        self.settings.set("preserve_formatting", True)
+        self.settings.set("skip_under_limit", False)
+
         self.splitter = DocumentSplitter(settings)
         self.splitter.current_output_folder = settings.get("output_folder")
 
         self.logger = logging.getLogger(__name__)
-        self.processed_files = set()  # Track which files have been processed
-        self.has_files = False  # Track if we have files loaded
-        self.dot_timers = {}  # For animation timers
+        self.processed_files = {}  # Map filepath to FileCard widgets
 
         # Set up the UI
         self.setWindowTitle("Manusplit")
-        self.setMinimumWidth(450)  # Slightly larger minimum width
-        self.setMinimumHeight(280)  # Slightly reduced minimum height
-        self.resize(450, 280)  # Initial window size matching updated dimensions
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(350)
+        self.resize(550, 380)
+
+        # Set app style
+        self.setStyleSheet("""
+            QMainWindow, QWidget {
+                background-color: #1a1a1a;
+                color: #ffffff;
+                font-family: -apple-system, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #262626;
+                width: 6px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #666666;
+                min-height: 20px;
+                border-radius: 3px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+                height: 0px;
+            }
+        """)
+
         self.setup_ui()
 
-        # Enable drag and drop
+        # Enable drag and drop for main window
         self.setAcceptDrops(True)
 
         # Worker thread
         self.worker_thread = None
 
     def setup_ui(self):
-        """Set up the modern UI with improved layout."""
-        # Set app style
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #1a1a1a;
-                color: white;
-            }
-        """)
-
-        # Set up central widget with main layout
+        """Set up the UI - direct and minimal approach."""
+        # Main widget and layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # Main layout with minimal margins
-        self.main_layout = QVBoxLayout(central_widget)
-        self.main_layout.setContentsMargins(12, 12, 12, 12)
-        self.main_layout.setSpacing(8)
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(16)
 
-        # Container widget for the file table and header
-        self.table_container = QWidget()
-        table_container_layout = QVBoxLayout(self.table_container)
-        table_container_layout.setContentsMargins(0, 0, 0, 0)
-        table_container_layout.setSpacing(0)
+        # Files area with scroll
+        self.files_frame = QWidget()
+        files_layout = QVBoxLayout(self.files_frame)
+        files_layout.setContentsMargins(16, 16, 16, 16)
+        files_layout.setSpacing(8)
 
-        # Custom table header
-        header_widget = QWidget()
-        header_widget.setFixedHeight(44)  # Slightly taller header
-        header_widget.setStyleSheet("""
-            background-color: #232323;
-            border-top-left-radius: 8px;
-            border-top-right-radius: 8px;
-            border-bottom: 1px solid #333333;
-        """)
+        # Files list container
+        self.files_list = QWidget()
+        self.files_layout = QVBoxLayout(self.files_list)
+        self.files_layout.setContentsMargins(0, 0, 0, 0)
+        self.files_layout.setSpacing(4)
+        self.files_layout.addStretch(1)  # Push content to top
 
-        # Use grid layout for precise positioning
-        header_layout = QGridLayout(header_widget)
-        header_layout.setContentsMargins(20, 0, 20, 0)
-        header_layout.setSpacing(0)
+        # Scroll area for files
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_area.setWidget(self.files_list)
+        files_layout.addWidget(scroll_area)
 
-        # Left-aligned "Files to split" header
-        files_header = QLabel("Files")
-        files_header.setStyleSheet("color: white; font-weight: 600; font-size: 14px;")
-        files_header.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        header_layout.addWidget(files_header, 0, 0)
+        # Add files frame to main layout
+        main_layout.addWidget(self.files_frame, 1)  # stretch
 
-        # Right-aligned "# Parts" in a container
-        right_container = QWidget()
-        right_container.setStyleSheet("background-color: transparent;")
-        right_layout = QHBoxLayout(right_container)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(8)  # Smaller spacing since only one widget remains
-
-        # "# Parts" header - center-aligned (first and only right-hand header)
-        parts_header = QLabel("# Parts")
-        parts_header.setStyleSheet("color: white; font-weight: 600; font-size: 14px;")
-        parts_header.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
-        parts_header.setFixedWidth(80)
-        right_layout.addWidget(parts_header)
-
-        # Add right container at column 1
-        header_layout.addWidget(right_container, 0, 1, 1, 1, Qt.AlignmentFlag.AlignRight)
-
-        # Set column stretch factors for proper alignment
-        header_layout.setColumnStretch(0, 1)  # Files column stretches
-        header_layout.setColumnStretch(1, 0)  # Fixed width for right columns
-
-        table_container_layout.addWidget(header_widget)
-
-        # Table for files
-        self.file_table = QTableWidget(0, 2)
-        self.file_table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        self.file_table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.file_table.setShowGrid(False)
-        self.file_table.setAlternatingRowColors(True)
-        self.file_table.verticalHeader().setVisible(False)
-        self.file_table.horizontalHeader().setVisible(False)
-
-        # Set fixed column widths to match header
-        self.file_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.file_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-        self.file_table.setColumnWidth(1, 80)   # Match header width
-
-        # Set elegant styling
-        self.file_table.setStyleSheet("""
-            QTableWidget {
-                background-color: #232323;
-                alternate-background-color: #282828;
-                border: none;
-                border-bottom-left-radius: 8px;
-                border-bottom-right-radius: 8px;
-                gridline-color: transparent;
-                outline: none;
-            }
-            QTableWidget::item {
-                padding: 8px 20px;  /* More padding for better readability */
-                border: none;
-            }
-            QTableWidget::item:selected {
-                background-color: transparent;
-            }
-            QScrollBar:vertical {
-                background: #232323;
-                width: 8px;
-                margin: 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: #555555;
-                border-radius: 4px;
-                min-height: 30px;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                height: 0px;
-            }
-        """)
-
-        table_container_layout.addWidget(self.file_table)
-
-        # Initially hide the table container
-        self.table_container.setVisible(False)
-        self.main_layout.addWidget(self.table_container)
-
-        # Create a container for the drop zone with the settings cog
-        self.drop_container = QWidget()
-        drop_container_layout = QVBoxLayout(self.drop_container)
-        drop_container_layout.setContentsMargins(0, 0, 0, 0)
-        drop_container_layout.setSpacing(0)
-
-        # Taller drop zone with settings icon
+        # Drop zone
         self.drop_zone = QWidget()
-        # let height size to content
-        self.drop_zone.setMinimumHeight(0)
-        self.drop_zone.setStyleSheet(
-            """
-            background-color: #222222;
-            border: 0px dashed #555555;
-            border-radius: 8px;
-            """
-        )
+        self.drop_zone.setMinimumHeight(90)
+        self.drop_zone.setMaximumHeight(90)
+        self.drop_zone.setAcceptDrops(True)
 
-        # Use relative positioning layout
         drop_layout = QVBoxLayout(self.drop_zone)
-        drop_layout.setContentsMargins(20, 12, 20, 12)
+        drop_layout.setContentsMargins(16, 16, 16, 16)
+        drop_layout.setSpacing(0)
+        drop_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Center container for text - ensures perfect vertical centering
-        center_container = QWidget()
-        center_container.setStyleSheet("border: none; background-color: transparent;")
-        center_layout = QVBoxLayout(center_container)
-        center_layout.setContentsMargins(0, 0, 0, 0)
+        # Drop zone background
+        self.drop_bg = ElegantFrame(self.drop_zone, radius=12, bg_color="#262626")
+        self.drop_bg.setGeometry(self.drop_zone.rect())
 
-        # Specific text with proper size
-        self.drop_text = QLabel("Drop .docx or .txt files here to split.")
-        self.drop_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.drop_text.setStyleSheet("""
-            color: #aaaaaa;
-            font-size: 14px;
+        # Drop label
+        self.drop_label = QLabel("Drop .docx or .txt files here")
+        self.drop_label.setStyleSheet("""
+            color: #888888;
+            font-size: 15px;
+            font-weight: 400;
             background-color: transparent;
-            padding: 4px 12px;
-            border: none;
         """)
-        center_layout.addWidget(self.drop_text)
+        self.drop_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_layout.addWidget(self.drop_label)
 
-        # Add center container in the middle of the drop zone
-        drop_layout.addStretch(1)
-        drop_layout.addWidget(center_container)
-        drop_layout.addStretch(1)
+        # Handle drop zone resize
+        self.drop_zone.resizeEvent = lambda e: self.drop_bg.setGeometry(self.drop_zone.rect())
 
-        # Settings icon overlay - positioned in top right corner
-        self.settings_btn = QPushButton()
-        self.settings_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.settings_btn.setFixedSize(36, 36)
-        self.settings_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #666666;
-                border: none;
-                font-size: 20px;
-                text-align: center;
-                padding: 0;
-            }
-            QPushButton:hover {
-                color: #ffffff;
-            }
-        """)
-        self.settings_btn.setText("⚙")
-        self.settings_btn.clicked.connect(self.show_settings)
+        main_layout.addWidget(self.drop_zone)
 
-        # Position settings button absolutely in top right
-        self.settings_btn.setParent(self.drop_zone)
-        drop_layout.addWidget(self.settings_btn, 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+        # Bottom controls
+        controls_layout = QHBoxLayout()
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.setSpacing(12)
 
-        drop_container_layout.addWidget(self.drop_zone)
-        self.main_layout.addWidget(self.drop_container)
+        # Word limit input
+        self.word_limit = WordLimitInput(self.settings.get("max_words"))
+        self.word_limit.valueChanged.connect(self.update_word_limit)
+        controls_layout.addWidget(self.word_limit)
+
+        # Add stretch to push destination to right
+        controls_layout.addStretch(1)
+
+        # Destination button
+        self.destination_btn = DestinationButton(self.settings.get("output_folder"))
+        self.destination_btn.clicked.connect(self.browse_destination)
+        controls_layout.addWidget(self.destination_btn)
+
+        main_layout.addLayout(controls_layout)
+
 
     def dragEnterEvent(self, event):
-        """Handle drag enter events safely."""
-        try:
-            if event.mimeData().hasUrls():
-                self.drop_zone.setStyleSheet("""
-                    background-color: rgba(0, 120, 212, 0.15);
-                    border: 0px dashed #555555;
-                    border-radius: 8px;
-                """)
-                self.drop_text.setStyleSheet("""
-                    color: #ffffff;
-                    font-size: 14px;
-                    background-color: transparent;
-                    padding: 4px 12px;
-                    border: none;
-                """)
-                event.acceptProposedAction()
-        except Exception as e:
-            self.logger.error(f"Error in dragEnterEvent: {str(e)}")
+        """Direct drag enter handling."""
+        if event.mimeData().hasUrls():
+            # Highlight drop zone
+            self.drop_bg.bg_color = "#203040"
+            self.drop_bg.update()
+            self.drop_label.setStyleSheet("""
+                color: #ffffff;
+                font-size: 15px;
+                font-weight: 400;
+                background-color: transparent;
+            """)
+            event.acceptProposedAction()
 
     def dragLeaveEvent(self, event):
-        """Handle drag leave events safely."""
-        try:
-            self.drop_zone.setStyleSheet("""
-                background-color: #222222;
-                border: 0px dashed #555555;
-                border-radius: 8px;
-            """)
-            self.drop_text.setStyleSheet("""
-                color: #aaaaaa;
-                font-size: 14px;
-                background-color: transparent;
-                padding: 4px 12px;
-                border: none;
-            """)
-        except Exception as e:
-            self.logger.error(f"Error in dragLeaveEvent: {str(e)}")
+        """Direct drag leave handling."""
+        # Reset drop zone
+        self.drop_bg.bg_color = "#262626"
+        self.drop_bg.update()
+        self.drop_label.setStyleSheet("""
+            color: #888888;
+            font-size: 15px;
+            font-weight: 400;
+            background-color: transparent;
+        """)
 
     def dropEvent(self, event):
-        """Handle drop events safely."""
-        try:
-            if event.mimeData().hasUrls():
-                # Reset styles
-                self.drop_zone.setStyleSheet("""
-                    background-color: #222222;
-                    border: 0px dashed #555555;
-                    border-radius: 8px;
-                """)
-                self.drop_text.setStyleSheet("""
-                    color: #aaaaaa;
-                    font-size: 14px;
-                    background-color: transparent;
-                    padding: 4px 12px;
-                    border: none;
-                """)
-                event.acceptProposedAction()
-
-                # Process files with delay to ensure UI updates first
-                files = []
-                for url in event.mimeData().urls():
-                    filepath = url.toLocalFile()
-                    if filepath and os.path.isfile(filepath):
-                        # Check for duplicates
-                        if filepath not in self.processed_files:
-                            files.append(filepath)
-                            self.processed_files.add(filepath)
-
-                if files:
-                    # Use a short timer to process files after the event completes
-                    QTimer.singleShot(50, lambda: self.process_files(files))
-        except Exception as e:
-            self.logger.error(f"Error in dropEvent: {str(e)}")
-
-    def truncate_filename(self, filename):
-        """Truncate long filenames for display."""
-        if len(filename) > self.MAX_FILENAME_LENGTH:
-            name, ext = os.path.splitext(filename)
-            truncated = name[:self.MAX_FILENAME_LENGTH - 5 - len(ext)] + "..." + ext
-            return truncated
-        return filename
-
-    def process_files(self, files):
-        """Process files and update UI."""
-        # Filter valid files
-        valid_files = []
-        for file in files:
-            file = str(file).strip()
-            if not file:
-                continue
-
-            _, ext = os.path.splitext(file.lower())
-            if ext in ['.docx', '.txt']:
-                valid_files.append(file)
-            else:
-                continue
-
-        if not valid_files:
-            return
-
-        # Show table container if not already visible
-        if not self.has_files:
-            self.has_files = True
-            self.table_container.setVisible(True)
-
-            # Make drop zone more compact when we have files
-            self.drop_zone.setFixedHeight(100)  # Increased height to prevent text cropping
-
-            # Restore drop-zone outline after first file is loaded
-            self.drop_zone.setStyleSheet("""
-                background-color: #222222;
-                border: 0px dashed #555555;
-                border-radius: 8px;
+        """Direct drop handling - core functionality."""
+        if event.mimeData().hasUrls():
+            # Reset drop zone appearance
+            self.drop_bg.bg_color = "#262626"
+            self.drop_bg.update()
+            self.drop_label.setStyleSheet("""
+                color: #888888;
+                font-size: 15px;
+                font-weight: 400;
+                background-color: transparent;
             """)
 
-            # Keep the same text as before
-            self.drop_text.setText("Drop .docx or .txt files here to split.")
+            # Get valid files
+            valid_files = []
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                if not os.path.isfile(file_path):
+                    continue
 
-        # Cancel any existing animation timers
-        for timer in self.dot_timers.values():
-            timer.stop()
-        self.dot_timers.clear()
+                _, ext = os.path.splitext(file_path.lower())
+                if ext not in ['.docx', '.txt']:
+                    continue
 
-        # Add files to table
-        self.add_files_to_table(valid_files)
+                # Only add if not already processed
+                if file_path not in self.processed_files:
+                    valid_files.append(file_path)
 
-        # Start worker thread
-        self.worker_thread = QThread()
-        self.worker = Worker(self.splitter, valid_files, self.settings)
-        self.worker.moveToThread(self.worker_thread)
+            # Process valid files
+            if valid_files:
+                self.process_files(valid_files)
 
-        self.worker_thread.started.connect(self.worker.process)
-        self.worker.fileProcessingStarted.connect(self.mark_file_processing)
-        self.worker.fileProcessingComplete.connect(self.update_file_result)
-        self.worker.finished.connect(self.on_processing_finished)
+            event.acceptProposedAction()
 
-        # Cleanup
-        self.worker_thread.finished.connect(self.worker.deleteLater)
-        self.worker_thread.finished.connect(self.worker_thread.deleteLater)
+    def browse_files(self):
+        """Browse for files via dialog."""
+        files, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Select Files to Split",
+            "",
+            "Documents (*.docx *.txt)"
+        )
 
-        # Start processing
-        self.worker_thread.start()
+        if files:
+            # Filter already processed files
+            new_files = [f for f in files if f not in self.processed_files]
+            if new_files:
+                self.process_files(new_files)
 
-    def on_processing_finished(self):
-        """Handle processing completion."""
-        # Stop all animation timers
-        for timer in self.dot_timers.values():
-            timer.stop()
-        self.dot_timers.clear()
+    def update_word_limit(self, value):
+        """Update word limit setting."""
+        self.settings.set("max_words", value)
+        self.settings.save()
 
-        # Let worker thread quit
-        self.worker_thread.quit()
+    def browse_destination(self):
+        """Browse for destination folder."""
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Select Destination Folder",
+            self.settings.get("output_folder")
+        )
 
-    def mark_file_processing(self, row):
-        """Mark a file as currently processing."""
-        # Update parts count with processing indicator
-        parts_item = self.file_table.item(row, 1)
-        if parts_item:
-            parts_item.setText("...")
-            parts_item.setTextAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
-            # Ensure font size matches settings UI (14px)
-            font = parts_item.font()
-            font.setPointSize(14)
-            parts_item.setFont(font)
+        if folder:
+            self.settings.set("output_folder", folder)
+            self.settings.save()
+            self.splitter.current_output_folder = folder
+            self.destination_btn.update_path(folder)
 
-            # Create timer for this cell
-            timer = QTimer(self)
-            timer.timeout.connect(lambda: self._animate_dots(row, 1))
-            timer.start(500)  # Update every 500ms
-            self.dot_timers[(row, 1)] = timer
-
-    def _animate_dots(self, row, col):
-        """Animate the loading dots."""
-        item = self.file_table.item(row, col)
-        if not item:
+    def process_files(self, files):
+        """Process files - direct implementation."""
+        # Prevent starting a new batch while a current processing thread is active
+        if getattr(self, 'worker_thread', None) and self.worker_thread.isRunning():
             return
+        try:
+            # Add files to UI first
+            for file_path in files:
+                # Skip if already processed
+                if file_path in self.processed_files:
+                    continue
 
-        text = item.text()
-        if text == "...":
-            item.setText(".")
-        elif text == ".":
-            item.setText("..")
-        elif text == "..":
-            item.setText("...")
-        else:
-            item.setText("...")
+                # Create file card
+                file_card = FileCard(file_path)
 
-    def add_files_to_table(self, files):
-        """Add files to the table with proper styling."""
-        for file_path in files:
-            # Get filename
-            filename = os.path.basename(file_path)
-            truncated_name = self.truncate_filename(filename)
+                # Add to map and UI
+                self.processed_files[file_path] = file_card
+                self.files_layout.insertWidget(self.files_layout.count() - 1, file_card)
 
-            # Add new row
-            row = self.file_table.rowCount()
-            self.file_table.insertRow(row)
+            # Start worker thread if there are files to process
+            if files:
+                # Create thread and worker
+                self.worker_thread = QThread()
+                self.worker = Worker(self.splitter, files, self.settings)
+                self.worker.moveToThread(self.worker_thread)
 
-            # Set row height
-            self.file_table.setRowHeight(row, 38)  # Slightly taller for better readability
+                # Connect signals
+                self.worker_thread.started.connect(self.worker.process)
+                self.worker.fileProgress.connect(self.update_file_progress)
+                self.worker.fileComplete.connect(self.mark_file_complete)
+                self.worker.fileError.connect(self.mark_file_error)
+                self.worker.finished.connect(self.worker_thread.quit)
+                self.worker_thread.finished.connect(self.worker.deleteLater)
+                # Remove automatic thread deletion to prevent premature deletion
+                # self.worker_thread.finished.connect(self.worker_thread.deleteLater)
+                # Instead, clear the reference when finished
+                self.worker_thread.finished.connect(lambda: setattr(self, 'worker_thread', None))
 
-            # Create filename item (left-aligned with proper padding)
-            file_item = QTableWidgetItem(f"{truncated_name}")
-            file_item.setData(Qt.ItemDataRole.UserRole, file_path)
-            file_item.setToolTip(filename)
-            file_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                # Start thread
+                self.worker_thread.start()
+        except Exception as e:
+            self.logger.exception(f"Error processing files: {str(e)}")
 
-            # Create parts placeholder (center-aligned to match header)
-            parts_item = QTableWidgetItem("...")
-            parts_item.setTextAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+    def update_file_progress(self, file_path, progress):
+        """Update progress for a file."""
+        if file_path in self.processed_files:
+            self.processed_files[file_path].update_progress(progress)
 
-            # Apply larger font sizes (14px to match settings UI)
-            for item in [file_item, parts_item]:
-                font = item.font()
-                font.setPointSize(14)
-                item.setFont(font)
+    def mark_file_complete(self, file_path, parts_count):
+        """Mark a file as completed."""
+        if file_path in self.processed_files:
+            self.processed_files[file_path].set_completed(parts_count)
 
-            # Add items to table
-            self.file_table.setItem(row, 0, file_item)
-            self.file_table.setItem(row, 1, parts_item)
+    def mark_file_error(self, file_path, error_message):
+        """Mark a file as errored."""
+        if file_path in self.processed_files:
+            self.processed_files[file_path].set_error(error_message)
 
-    def update_file_result(self, row, result):
-        """Update table with processing result."""
-        if not result['success']:
-            return
 
-        # Stop animation timers for this row
-        if (row, 1) in self.dot_timers:
-            self.dot_timers[(row, 1)].stop()
-            del self.dot_timers[(row, 1)]
+class FirstRunScreen(QMainWindow):
+    """Elegant first run welcome screen."""
 
-        # Update parts count (center-aligned to match header)
-        parts_item = self.file_table.item(row, 1)
-        if parts_item:
-            parts_item.setText(str(result['parts_created']))
-            # No special color - keep it white like the other text
-            parts_item.setTextAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
-            # Ensure font size matches settings UI (14px)
-            font = parts_item.font()
-            font.setPointSize(14)
-            parts_item.setFont(font)
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Welcome to Manusplit")
+        self.resize(500, 280)
+        self.output_path = os.path.join(os.path.expanduser("~"), "Documents", "Manusplit Files")
+        self.result = False
 
-    def show_settings(self):
-        """Show the settings dialog."""
-        dialog = SettingsDialog(self.settings, self)
-        dialog.setStyleSheet("""
-            QDialog {
+        # Set app style
+        self.setStyleSheet("""
+            QMainWindow, QWidget {
                 background-color: #1a1a1a;
+                color: #ffffff;
+                font-family: -apple-system, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
             }
         """)
 
-        if dialog.exec():
-            # Save settings
-            if dialog.save_settings():
-                # Update splitter
-                self.splitter.current_output_folder = self.settings.get("output_folder")
+        self.setup_ui()
+
+    def setup_ui(self):
+        """Set up the welcome screen."""
+        # Main widget and layout
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(24, 24, 24, 24)
+        main_layout.setSpacing(16)
+
+        # Description - direct approach
+        desc_label = QLabel("Select where you'd like to save split documents")
+        desc_label.setStyleSheet("""
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 500;
+        """)
+        desc_label.setWordWrap(True)
+        main_layout.addWidget(desc_label)
+
+        # Content frame
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(16, 16, 16, 16)
+        content_layout.setSpacing(12)
+
+        # Background frame
+        self.content_bg = ElegantFrame(content_widget, radius=12, bg_color="#232323")
+        self.content_bg.setGeometry(content_widget.rect())
+        content_widget.resizeEvent = lambda e: self.content_bg.setGeometry(content_widget.rect())
+
+        # Folder path display
+        path_container = QWidget()
+        path_layout = QHBoxLayout(path_container)
+        path_layout.setContentsMargins(0, 0, 0, 0)
+        path_layout.setSpacing(10)
+
+        self.path_label = QLabel(self.output_path)
+        self.path_label.setStyleSheet("""
+            color: #ffffff;
+            font-size: 14px;
+            background-color: #2a2a2a;
+            border-radius: 6px;
+            padding: 8px 12px;
+        """)
+        self.path_label.setFixedHeight(36)
+        path_layout.addWidget(self.path_label, 1)
+
+        browse_btn = ElegantButton("Browse", self)
+        browse_btn.clicked.connect(self.browse_folder)
+        path_layout.addWidget(browse_btn)
+
+        content_layout.addWidget(path_container)
+
+        # Add note
+        note_label = QLabel("This folder will be created if it doesn't exist")
+        note_label.setStyleSheet("""
+            color: #888888;
+            font-size: 13px;
+            font-style: italic;
+        """)
+        content_layout.addWidget(note_label)
+
+        # Add the content widget to main layout
+        main_layout.addWidget(content_widget)
+
+        # Add spacer
+        main_layout.addStretch(1)
+
+        # Buttons
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        buttons_layout.setSpacing(12)
+
+        # Push to right
+        buttons_layout.addStretch(1)
+
+        # Continue button
+        continue_btn = ElegantButton("Get Started", self, primary=True)
+        continue_btn.clicked.connect(self.accept)
+        buttons_layout.addWidget(continue_btn)
+
+        main_layout.addLayout(buttons_layout)
+
+    def browse_folder(self):
+        """Browse for output folder."""
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Select Output Folder",
+            self.output_path
+        )
+
+        if folder:
+            self.output_path = folder
+            self.path_label.setText(folder)
+
+    def accept(self):
+        """Accept and close."""
+        self.result = True
+        self.close()
 
 
+# Utility functions
 def force_first_run():
     """Force first run dialog by renaming settings file."""
     if os.path.exists("settings.json"):
@@ -982,12 +932,12 @@ def create_default_settings(output_path=None):
             if not os.path.exists(output_path):
                 os.makedirs(output_path)
 
-            # Default settings
+            # Default settings - always preserve formatting and process all files
             settings_dict = {
                 "max_words": 100000,
                 "output_folder": output_path,
                 "preserve_formatting": True,
-                "skip_under_limit": True
+                "skip_under_limit": False
             }
 
             # Write settings
@@ -1022,27 +972,30 @@ def main():
 
     # Start application
     app = QApplication(sys.argv)
-    app.setStyle("Fusion")
 
     # Use modern font
-    font = QFont("SF Pro, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial", 9)
+    font = QFont("SF Pro Display, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial", 10)
     app.setFont(font)
 
-    # Check for first run
-    first_run = is_first_run()
+    # Add exception hook to log uncaught exceptions
+    def exception_hook(exctype, value, tb):
+        logger.critical(f"Uncaught exception: {value}")
+        logger.critical("".join(traceback.format_tb(tb)))
+        sys.__excepthook__(exctype, value, tb)
+
+    sys.excepthook = exception_hook
 
     try:
         # Show first run dialog if needed
         output_path = None
-        if first_run:
-            dialog = FirstRunDialog()
-            dialog.setStyleSheet("""
-                QDialog {
-                    background-color: #1a1a1a;
-                }
-            """)
+        if first_run := is_first_run():
+            dialog = FirstRunScreen()
+            dialog.show()
 
-            if dialog.exec():
+            # Run event loop until dialog is closed
+            app.exec()
+
+            if dialog.result:
                 output_path = dialog.output_path
             else:
                 # Use default path if canceled
