@@ -724,7 +724,7 @@ class ManusplitApp(QMainWindow):
             QMainWindow, QWidget {
                 background-color: #121212;
                 color: #ffffff;
-                font-family: -apple-system, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+                font-family: Arial, sans-serif;
             }
             QScrollBar:vertical {
                 border: none;
@@ -1121,7 +1121,7 @@ class FirstRunScreen(QMainWindow):
             QMainWindow, QWidget {
                 background-color: #121212;
                 color: #ffffff;
-                font-family: -apple-system, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+                font-family: Arial, sans-serif;
             }
         """)
 
@@ -1298,7 +1298,7 @@ def main():
     app = QApplication(sys.argv)
 
     # Use modern font
-    font = QFont("SF Pro Display, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial", 10)
+    font = QFont("Arial", 10)
     app.setFont(font)
 
     # Add exception hook to log uncaught exceptions
