@@ -1,102 +1,72 @@
 # Manusplit
 
-A minimal, fast, purpose-built desktop app for splitting large documents (.docx and .txt) into smaller parts based on word count.
+**A fast, lightweight desktop tool for splitting large `.docx` and `.txt` documents into smaller parts based on word count — built for AI knowledge base prep.**
 
-## Purpose
+---
 
-Manusplit helps you break down large text documents into smaller chunks for use with AI knowledge bases that have word count limits (e.g., OpenAI's Custom GPT). Simply drag and drop your files, and Manusplit automatically splits them into compliant parts.
+## 🖼️ Preview
 
-## Key Features
+<p align="center">
+  <img src="https://github.com/yourname/manusplit/blob/main/assets/manusplit-preview.gif?raw=true" width="500"/>
+</p>
 
-- **Simple Interface**: Drag and drop files for immediate processing
-- **Word-Based Splitting**: Intelligently splits on paragraph boundaries
-- **Format Preservation**: Maintains basic text formatting
-- **Multiple File Support**: Process batch files at once
-- **Cross-Platform**: Works on Windows, macOS, and Linux
+---
 
-## Requirements
+## 🎯 Overview
 
-- Python 3.9 or newer (3.13+ recommended for best performance)
-- Dependencies: python-docx, PySimpleGUI, requests
+**Manusplit** is a simple, purpose-built desktop application that helps you quickly break down massive text documents into smaller, manageable chunks — perfect for uploading into AI tools like OpenAI’s Custom GPT, which often have word count limits.
 
-## Installation
+Just drag and drop your file, set a word limit, and Manusplit handles the rest.
 
-### Option 1: Download Pre-built Binaries
+---
 
-Download the latest release for your platform from the [Releases](https://github.com/yourname/manusplit/releases) page.
+## ✅ Key Features
 
-### Option 2: Install from Source
+- **Super simple interface** — drag and drop files, no clutter
+- **Smart splitting on paragraph boundaries**
+- **Custom word limits** — set your target word count per output file
+- **Supports multiple files** — batch process several documents at once
+- **Cross-platform** — runs on Windows, macOS, and Linux
+- **Offline & private** — no internet connection or data sharing
 
-```bash
-# Clone the repository
-git clone https://github.com/yourname/manusplit.git
-cd manusplit
+---
 
-# Install dependencies
-pip install -r requirements.txt
+## 📦 Installation
 
-# Run the application
-python main.py
-```
+1. Visit the [Releases](https://github.com/yourname/manusplit/releases) page  
+2. Download the version for your operating system:  
+   - Windows `.exe`  
+   - macOS `.dmg`  
+   - Linux AppImage or archive  
+3. Run the app — no setup required
 
-## Usage
+✅ That’s it! You’re ready to start splitting.
 
-1. Launch Manusplit
-2. Drag and drop .docx or .txt files into the window (or use the Browse button)
-3. Files are automatically processed using current settings
-4. Split parts are saved to the configured output folder
+---
 
-## Settings
+## 🚀 Usage
 
-Access settings by clicking the gear icon:
+1. Open **Manusplit**
+2. Drag and drop your `.docx` or `.txt` files into the window
+3. Set your desired word limit and output location
+4. Manusplit automatically creates clean, split files in your folder of choice
 
-- **Maximum words per file**: Target word count per output (1,000-100,000)
-- **Output folder**: Where split files are saved
-- **Preserve formatting**: Keep basic text formatting (bold, italic, etc.)
-- **Skip files under limit**: Don't process files below the word limit
-- **Theme**: Light, Dark, or System default
-- **Check for updates**: Automatically check for new versions
+---
 
-## Development
+## 🔒 Privacy & Offline Behavior
 
-### Setup Environment
+- **100% offline** — no internet connection required  
+- **No telemetry or tracking**  
+- All processing stays fully on your device
 
-```bash
-# Install development dependencies
-pip install -r requirements.txt pytest
+---
 
-# Run tests
-pytest tests/
-```
+## 📩 Support
 
-### Building Executables
+For questions, feedback, or bug reports, contact **apphazardstudios@gmail.com**
 
-```bash
-# Install PyInstaller
-pip install pyinstaller
+---
 
-# Create executable
-pyinstaller --windowed --onefile --icon=assets/icon.ico main.py
-```
-
-## License
-
-[MIT License](LICENSE)
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Future Plans
-
-- CLI version
-- Section-aware splitting (by chapters/headings)
-- Table of contents generation
-- Merge tool for rejoining parts
-- i18n support
+<!--  
+Tags: Manusplit, document splitter, docx splitter, txt splitter, AI prep, Custom GPT, word count, desktop tool, cross-platform, offline tool  
+-->

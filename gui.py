@@ -1,5 +1,6 @@
 """
 Manusplit - Elegant, minimal interface for document splitting.
+Horizontal layout with integrated design and darker theme.
 """
 import sys
 import os
@@ -10,10 +11,13 @@ from pathlib import Path
 
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                            QHBoxLayout, QLabel, QPushButton, QFileDialog,
-                           QFrame, QScrollArea, QLineEdit)
+                           QFrame, QScrollArea, QLineEdit, QSplitter)
 from PyQt6.QtGui import (QFont, QFontMetrics, QDragEnterEvent, QDropEvent,
-                       QCursor, QPainter, QColor, QIntValidator)
-from PyQt6.QtCore import (Qt, QThread, pyqtSignal, QObject, QSize, QPoint)
+                       QCursor, QPainter, QColor, QIntValidator, QPixmap)
+from PyQt6.QtCore import (Qt, QThread, pyqtSignal, QObject, QSize, QPoint,
+                        QPropertyAnimation, QEasingCurve, QVariantAnimation,
+                        pyqtProperty, QTimer)
+from PyQt6.QtSvg import QSvgRenderer
 
 # Import your existing components
 from settings import Settings
@@ -25,11 +29,14 @@ import version
 class ElegantFrame(QFrame):
     """A beautifully styled frame with subtle shadows and rounded corners."""
 
-    def __init__(self, parent=None, radius=12, bg_color="#232323", shadow=True):
+    def __init__(self, parent=None, radius=12, bg_color="#1a1a1a", shadow=True, border=False, border_color=None, border_style="solid"):
         super().__init__(parent)
         self.radius = radius
         self.bg_color = bg_color
         self.has_shadow = shadow
+        self.has_border = border
+        self.border_color = border_color or "#333333"
+        self.border_style = border_style
         self.setStyleSheet(f"""
             background-color: transparent;
             border: none;
@@ -51,6 +58,51 @@ class ElegantFrame(QFrame):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(self.bg_color))
         painter.drawRoundedRect(self.rect(), self.radius, self.radius)
+
+        # Draw border if enabled
+        if self.has_border:
+            if self.border_style == "dashed":
+                pen = painter.pen()
+                pen.setColor(QColor(self.border_color))
+                pen.setStyle(Qt.PenStyle.DashLine)
+                pen.setWidth(1)
+                painter.setPen(pen)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), self.radius, self.radius)
+            else:
+                painter.setPen(QColor(self.border_color))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawRoundedRect(self.rect().adjusted(0, 0, -1, -1), self.radius, self.radius)
+
+
+class DownArrowWidget(QWidget):
+    """Widget that displays a down arrow."""
+    def __init__(self, parent=None, color="#555555", size=48):
+        super().__init__(parent)
+        self.color = color
+        self.size = size
+        self.setFixedSize(size, size)
+
+    def paintEvent(self, event):
+        """Paint the down arrow."""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Define arrow points
+        width, height = self.width(), self.height()
+        arrow_width = width * 0.5
+        arrow_height = height * 0.3
+
+        points = [
+            QPoint(width / 2 - arrow_width / 2, height / 2 - arrow_height / 2),  # top-left
+            QPoint(width / 2 + arrow_width / 2, height / 2 - arrow_height / 2),  # top-right
+            QPoint(width / 2, height / 2 + arrow_height / 2)                     # bottom
+        ]
+
+        # Draw arrow
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(self.color))
+        painter.drawPolygon(points)
 
 
 class Worker(QObject):
@@ -149,7 +201,7 @@ class FileCard(QWidget):
         """Set up the file card UI."""
         # Main layout with larger margins for cleaner look
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 10, 16, 10)
+        layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(12)
 
         # Base widget is transparent
@@ -159,14 +211,14 @@ class FileCard(QWidget):
         """)
 
         # Create background frame
-        self.bg_frame = ElegantFrame(self, radius=10, bg_color="#262626")
+        self.bg_frame = ElegantFrame(self, radius=8, bg_color="#1a1a1a")
         self.bg_frame.setGeometry(self.rect())
 
         # File type indicator
         type_container = QWidget()
         type_container.setFixedSize(34, 34)
         type_container.setStyleSheet("""
-            background-color: #3a3a3a;
+            background-color: #2a2a2a;
             border-radius: 17px;
         """)
 
@@ -263,7 +315,7 @@ class FileCard(QWidget):
         self.progress_label.setText(f"{progress}%")
 
         # Progress-colored background - subtle gradient
-        color = self._interpolate_color("#1a3a5a", "#262626", progress/100)
+        color = self._interpolate_color("#1a3a5a", "#1a1a1a", progress/100)
         self.bg_frame.bg_color = color
         self.bg_frame.update()
 
@@ -290,7 +342,7 @@ class FileCard(QWidget):
         """)
 
         # Reset background with slight green tint
-        self.bg_frame.bg_color = "#26322a"
+        self.bg_frame.bg_color = "#1a291f"
         self.bg_frame.update()
 
     def set_error(self, error_message):
@@ -316,7 +368,7 @@ class FileCard(QWidget):
         self.status_label.setToolTip(error_message)
 
         # Error background
-        self.bg_frame.bg_color = "#32262a"
+        self.bg_frame.bg_color = "#2a1a1a"
         self.bg_frame.update()
 
     def _interpolate_color(self, color1, color2, factor):
@@ -331,59 +383,235 @@ class FileCard(QWidget):
         return f"#{r:02x}{g:02x}{b:02x}"
 
 
-class ElegantButton(QPushButton):
-    """Beautifully styled button with subtle hover effects."""
+class AnimatedButton(QPushButton):
+    """Base class for buttons with smooth macOS-like animation."""
 
-    def __init__(self, text, parent=None, primary=False):
+    def __init__(self, text, parent=None):
         super().__init__(text, parent)
-        self.is_primary = primary
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
-        if primary:
-            bg_color = "#0078d4"
-            hover_color = "#0086f0"
-            pressed_color = "#006aba"
-        else:
-            bg_color = "#323232"
-            hover_color = "#424242"
-            pressed_color = "#282828"
+        # Animation properties
+        self._animation_progress = 0.0
+        self._animation = QVariantAnimation()
+        self._animation.setDuration(75)  # 150ms animation
+        self._animation.setEasingCurve(QEasingCurve.Type.OutCubic)  # macOS-like easing
+        self._animation.valueChanged.connect(self._update_animation)
 
-        self.bg_color = bg_color
-        self.hover_color = hover_color
-        self.pressed_color = pressed_color
+        # Keep track of mouse state
+        self._is_pressed = False
+        self._is_hovered = False
 
-        # Make transparent so we can draw our own background
-        self.setStyleSheet(f"""
-            QPushButton {{
+        # Set transparent background so we can paint our own
+        self.setStyleSheet("""
+            QPushButton {
                 color: #ffffff;
                 background-color: transparent;
                 border: none;
                 padding: 6px 12px;
                 font-size: 13px;
-                font-weight: {600 if primary else 400};
                 text-align: center;
-            }}
+            }
         """)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
+    def _get_animation_progress(self):
+        return self._animation_progress
+
+    def _set_animation_progress(self, progress):
+        self._animation_progress = progress
+        self.update()  # Trigger repaint
+
+    # Define animation property
+    animation_progress = pyqtProperty(float, _get_animation_progress, _set_animation_progress)
+
+    def _update_animation(self, value):
+        """Update animation state."""
+        self.animation_progress = value
+
+    def enterEvent(self, event):
+        """Handle mouse enter event."""
+        self._is_hovered = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        """Handle mouse leave event."""
+        self._is_hovered = False
+        self.update()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        """Handle mouse press with animation start."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._is_pressed = True
+
+            # Start animation from 0 to 1
+            self._animation.stop()
+            self._animation.setStartValue(0.0)
+            self._animation.setEndValue(1.0)
+            self._animation.start()
+
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """Handle mouse release with animation back."""
+        if event.button() == Qt.MouseButton.LeftButton and self._is_pressed:
+            self._is_pressed = False
+
+            # Start animation from current value back to 0
+            self._animation.stop()
+            self._animation.setStartValue(self._animation_progress)
+            self._animation.setEndValue(0.0)
+            self._animation.start()
+
+        super().mouseReleaseEvent(event)
+
+
+class ElegantButton(AnimatedButton):
+    """Beautifully styled button with smooth macOS-like animations."""
+
+    def __init__(self, text, parent=None, primary=False, icon=None):
+        super().__init__(text, parent)
+        self.is_primary = primary
+        self.icon_path = icon
+
+        # Set button styles based on primary status
+        if primary:
+            self.normal_color = "#0078d4"
+            self.hover_color = "#0086f0"
+            self.pressed_color = "#005a9e"  # Darker for press animation
+        else:
+            self.normal_color = "#1e1e1e"
+            self.hover_color = "#2a2a2a"
+            self.pressed_color = "#101010"  # Darker for press animation
+
+        # Set font weight
+        if primary:
+            self.setStyleSheet("""
+                QPushButton {
+                    color: #ffffff;
+                    background-color: transparent;
+                    border: none;
+                    padding: 6px 12px;
+                    font-size: 13px;
+                    font-weight: 600;
+                    text-align: center;
+                }
+            """)
+
     def paintEvent(self, event):
-        """Custom paint event to draw rounded button."""
+        """Custom paint event to draw animated rounded button."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # Draw button background
-        painter.setPen(Qt.PenStyle.NoPen)
-        if self.isDown():
-            painter.setBrush(QColor(self.pressed_color))
-        elif self.underMouse():
+        # Determine background color based on state and animation
+        if self._is_pressed or self._animation_progress > 0:
+            # Animate between normal/hover color and pressed color based on animation progress
+            if self._is_hovered and not self._is_pressed:
+                base_color = self.hover_color
+            else:
+                base_color = self.normal_color
+
+            # Mix colors based on animation progress
+            color = self._mix_colors(base_color, self.pressed_color, self._animation_progress)
+            painter.setBrush(QColor(color))
+        elif self._is_hovered:
             painter.setBrush(QColor(self.hover_color))
         else:
-            painter.setBrush(QColor(self.bg_color))
+            painter.setBrush(QColor(self.normal_color))
 
+        painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(self.rect(), 8, 8)
 
         # Pass to standard button painting for text/icon
-        super().paintEvent(event)
+        super(AnimatedButton, self).paintEvent(event)
+
+    def _mix_colors(self, color1, color2, factor):
+        """Mix two hex colors based on factor (0-1)."""
+        r1, g1, b1 = int(color1[1:3], 16), int(color1[3:5], 16), int(color1[5:7], 16)
+        r2, g2, b2 = int(color2[1:3], 16), int(color2[3:5], 16), int(color2[5:7], 16)
+
+        r = int(r1 + factor * (r2 - r1))
+        g = int(g1 + factor * (g2 - g1))
+        b = int(b1 + factor * (b2 - b1))
+
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+
+class DestinationButton(AnimatedButton):
+    """Button showing the current destination folder with animations."""
+
+    def __init__(self, path, parent=None):
+        # Just use an empty string for text, we'll set it in updateStyle
+        super().__init__("", parent)
+        self.full_path = path
+
+        # Fixed size to match word limit input
+        self.setFixedHeight(28)
+        self.setFixedWidth(120)
+
+        # Style the button
+        self.normal_color = "#1e1e1e"
+        self.hover_color = "#2a2a2a"
+        self.pressed_color = "#101010"  # Darker for press animation
+
+        # Set initial text
+        self.update_path(path)
+
+    def paintEvent(self, event):
+        """Custom paint event to draw animated rounded button."""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Determine background color based on state and animation
+        if self._is_pressed or self._animation_progress > 0:
+            # Animate between normal/hover color and pressed color based on animation progress
+            if self._is_hovered and not self._is_pressed:
+                base_color = self.hover_color
+            else:
+                base_color = self.normal_color
+
+            # Mix colors based on animation progress
+            color = self._mix_colors(base_color, self.pressed_color, self._animation_progress)
+            painter.setBrush(QColor(color))
+        elif self._is_hovered:
+            painter.setBrush(QColor(self.hover_color))
+        else:
+            painter.setBrush(QColor(self.normal_color))
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRoundedRect(self.rect(), 6, 6)
+
+        # Pass to standard button painting for text
+        super(AnimatedButton, self).paintEvent(event)
+
+    def _mix_colors(self, color1, color2, factor):
+        """Mix two hex colors based on factor (0-1)."""
+        r1, g1, b1 = int(color1[1:3], 16), int(color1[3:5], 16), int(color1[5:7], 16)
+        r2, g2, b2 = int(color2[1:3], 16), int(color2[3:5], 16), int(color2[5:7], 16)
+
+        r = int(r1 + factor * (r2 - r1))
+        g = int(g1 + factor * (g2 - g1))
+        b = int(b1 + factor * (b2 - b1))
+
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def _format_path(self, path):
+        """Format path for display - shorten if needed."""
+        if len(path) > 18:  # Shorter limit to fit button
+            # Get last folder name
+            parts = path.split(os.path.sep)
+            last_part = parts[-1] if parts[-1] else parts[-2]  # Handle trailing slash
+            if len(last_part) > 16:
+                last_part = last_part[:14] + "..."
+            return f".../{last_part}"
+        return path
+
+    def update_path(self, path):
+        """Update the path."""
+        self.full_path = path
+        self.setText(self._format_path(path))
+        self.setToolTip(path)
 
 
 class WordLimitInput(QWidget):
@@ -411,11 +639,14 @@ class WordLimitInput(QWidget):
         """)
         layout.addWidget(self.label)
 
-        # Input field container
+        # Spacer to push input to the right, aligned with Save To
+        layout.addStretch(1)
+
+        # Input field container with appropriate width
         input_container = QWidget()
-        input_container.setFixedSize(70, 28)
+        input_container.setFixedSize(120, 28)  # Appropriate width for content
         input_container.setStyleSheet("""
-            background-color: #323232;
+            background-color: #1e1e1e;
             border-radius: 6px;
         """)
 
@@ -463,34 +694,8 @@ class WordLimitInput(QWidget):
         self.input.setText(str(value))
 
 
-class DestinationButton(ElegantButton):
-    """Button showing the current destination folder."""
-
-    def __init__(self, path, parent=None):
-        # Format path for display
-        display_path = self._format_path(path)
-        super().__init__(f"Save to: {display_path}", parent)
-        self.full_path = path
-        self.setToolTip(path)
-
-    def _format_path(self, path):
-        """Format path for display - shorten if needed."""
-        if len(path) > 30:
-            # Get last folder name
-            parts = path.split(os.path.sep)
-            last_part = parts[-1] if parts[-1] else parts[-2]  # Handle trailing slash
-            return f".../{last_part}"
-        return path
-
-    def update_path(self, path):
-        """Update the path."""
-        self.full_path = path
-        self.setText(f"Save to: {self._format_path(path)}")
-        self.setToolTip(path)
-
-
 class ManusplitApp(QMainWindow):
-    """Direct, streamlined UI for Manusplit."""
+    """Redesigned horizontal layout UI for Manusplit."""
 
     def __init__(self, settings):
         super().__init__()
@@ -508,25 +713,27 @@ class ManusplitApp(QMainWindow):
 
         # Set up the UI
         self.setWindowTitle("Manusplit")
-        self.setMinimumWidth(500)
-        self.setMinimumHeight(350)
-        self.resize(550, 380)
+        self.setMinimumWidth(700)  # Wider minimum width
+        self.setMinimumHeight(450)  # Taller minimum height
 
-        # Set app style
+        # Start with larger size
+        self.resize(800, 500)  # Wider default
+
+        # Set app style - darker theme
         self.setStyleSheet("""
             QMainWindow, QWidget {
-                background-color: #1a1a1a;
+                background-color: #121212;
                 color: #ffffff;
                 font-family: -apple-system, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
             }
             QScrollBar:vertical {
                 border: none;
-                background: #262626;
+                background: #1e1e1e;
                 width: 6px;
                 margin: 0px;
             }
             QScrollBar::handle:vertical {
-                background: #666666;
+                background: #555555;
                 min-height: 20px;
                 border-radius: 3px;
             }
@@ -534,6 +741,10 @@ class ManusplitApp(QMainWindow):
                 border: none;
                 background: none;
                 height: 0px;
+            }
+            QSplitter::handle {
+                background-color: #2a2a2a;
+                width: 1px;
             }
         """)
 
@@ -546,26 +757,47 @@ class ManusplitApp(QMainWindow):
         self.worker_thread = None
 
     def setup_ui(self):
-        """Set up the UI - direct and minimal approach."""
+        """Set up the UI with horizontal layout."""
         # Main widget and layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(16, 16, 16, 16)
-        main_layout.setSpacing(16)
+        main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(12, 12, 12, 12)  # Smaller margins
+        main_layout.setSpacing(0)
 
-        # Files area with scroll
-        self.files_frame = QWidget()
-        files_layout = QVBoxLayout(self.files_frame)
-        files_layout.setContentsMargins(16, 16, 16, 16)
-        files_layout.setSpacing(8)
+        # Create horizontal splitter
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setHandleWidth(1)
+        splitter.setChildrenCollapsible(False)
 
-        # Files list container
+        # Left side - Files panel
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 12, 0)  # Less right margin
+        left_layout.setSpacing(10)  # Tighter spacing
+
+        # Header for files
+        files_header = QLabel("Files")
+        files_header.setStyleSheet("""
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        """)
+        left_layout.addWidget(files_header)
+
+        # Files list container with frame
+        files_frame = ElegantFrame(radius=10, bg_color="#171717")
+        files_frame_layout = QVBoxLayout(files_frame)
+        files_frame_layout.setContentsMargins(10, 10, 10, 10)  # Smaller padding
+        files_frame_layout.setSpacing(6)  # Tighter spacing
+
+        # Files list with scroll
         self.files_list = QWidget()
         self.files_layout = QVBoxLayout(self.files_list)
         self.files_layout.setContentsMargins(0, 0, 0, 0)
-        self.files_layout.setSpacing(4)
+        self.files_layout.setSpacing(4)  # Even tighter spacing
         self.files_layout.addStretch(1)  # Push content to top
 
         # Scroll area for files
@@ -573,101 +805,192 @@ class ManusplitApp(QMainWindow):
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         scroll_area.setWidget(self.files_list)
-        files_layout.addWidget(scroll_area)
+        files_frame_layout.addWidget(scroll_area)
 
-        # Add files frame to main layout
-        main_layout.addWidget(self.files_frame, 1)  # stretch
+        left_layout.addWidget(files_frame, 1)  # Stretch to fill
 
-        # Drop zone
+        # Right side - Drop zone and settings panel
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(12, 0, 0, 0)  # Less left margin
+        right_layout.setSpacing(10)  # Tighter spacing
+
+        # Header for drop zone
+        drop_header = QLabel("Add Files")
+        drop_header.setStyleSheet("""
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        """)
+        right_layout.addWidget(drop_header)
+
+        # Drop zone with dashed border and down arrow
         self.drop_zone = QWidget()
-        self.drop_zone.setMinimumHeight(90)
-        self.drop_zone.setMaximumHeight(90)
+        # No fixed height to match files panel
         self.drop_zone.setAcceptDrops(True)
 
         drop_layout = QVBoxLayout(self.drop_zone)
-        drop_layout.setContentsMargins(16, 16, 16, 16)
-        drop_layout.setSpacing(0)
-        drop_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_layout.setContentsMargins(0, 0, 0, 0)  # No margins
 
-        # Drop zone background
-        self.drop_bg = ElegantFrame(self.drop_zone, radius=12, bg_color="#262626")
-        self.drop_bg.setGeometry(self.drop_zone.rect())
+        # Drop zone container with dashed border - STORE DIRECT REFERENCE
+        self.drop_container = ElegantFrame(
+            radius=10,
+            bg_color="#171717",
+            border=True,
+            border_color="#444444",
+            border_style="dashed"
+        )
 
-        # Drop label
+        # Content inside the dashed border
+        drop_content_layout = QVBoxLayout(self.drop_container)
+        drop_content_layout.setContentsMargins(16, 20, 16, 20)  # More top/bottom padding
+        drop_content_layout.setSpacing(12)  # More space between elements
+        drop_content_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Down arrow - smaller and move closer to text
+        self.arrow = DownArrowWidget(color="#666666", size=28)
+        drop_content_layout.addWidget(self.arrow, 0, Qt.AlignmentFlag.AlignCenter)
+
+        # Drop label - move closer to arrow
         self.drop_label = QLabel("Drop .docx or .txt files here")
         self.drop_label.setStyleSheet("""
             color: #888888;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 400;
             background-color: transparent;
+            padding-top: 0;
         """)
         self.drop_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        drop_layout.addWidget(self.drop_label)
+        drop_content_layout.addWidget(self.drop_label)
 
-        # Handle drop zone resize
-        self.drop_zone.resizeEvent = lambda e: self.drop_bg.setGeometry(self.drop_zone.rect())
+        # More space before browse button
+        drop_content_layout.addSpacing(12)
 
-        main_layout.addWidget(self.drop_zone)
+        # Browse button - now with animation
+        self.browse_btn = ElegantButton("Browse Files", primary=False)
+        self.browse_btn.clicked.connect(self.browse_files)
+        drop_content_layout.addWidget(self.browse_btn, 0, Qt.AlignmentFlag.AlignCenter)
 
-        # Bottom controls
-        controls_layout = QHBoxLayout()
-        controls_layout.setContentsMargins(0, 0, 0, 0)
-        controls_layout.setSpacing(12)
+        # Add the framed container to the drop layout
+        drop_layout.addWidget(self.drop_container)
 
-        # Word limit input
+        # Add drop zone to right panel
+        right_layout.addWidget(self.drop_zone, 1)  # Stretch to fill
+
+        # Settings section
+        settings_header = QLabel("Settings")
+        settings_header.setStyleSheet("""
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 600;
+            margin-top: 10px;
+            margin-bottom: 4px;
+        """)
+        right_layout.addWidget(settings_header)
+
+        # Settings container
+        settings_panel = ElegantFrame(radius=10, bg_color="#171717")
+        settings_layout = QVBoxLayout(settings_panel)
+        settings_layout.setContentsMargins(16, 16, 16, 16)
+        settings_layout.setSpacing(12)
+
+        # Word limit setting with right-aligned input
         self.word_limit = WordLimitInput(self.settings.get("max_words"))
         self.word_limit.valueChanged.connect(self.update_word_limit)
-        controls_layout.addWidget(self.word_limit)
+        settings_layout.addWidget(self.word_limit)
 
-        # Add stretch to push destination to right
-        controls_layout.addStretch(1)
+        # Save to location with matching right alignment
+        save_to_container = QWidget()
+        save_to_layout = QHBoxLayout(save_to_container)
+        save_to_layout.setContentsMargins(0, 0, 0, 0)
+        save_to_layout.setSpacing(8)
 
-        # Destination button
+        # Label
+        save_to_label = QLabel("Save to:")
+        save_to_label.setStyleSheet("""
+            color: #aaaaaa;
+            font-size: 13px;
+            background-color: transparent;
+        """)
+        save_to_layout.addWidget(save_to_label)
+
+        # Add stretch to push button to the right, aligned with word input
+        save_to_layout.addStretch(1)
+
+        # Path button - entire button is clickable with animation
         self.destination_btn = DestinationButton(self.settings.get("output_folder"))
         self.destination_btn.clicked.connect(self.browse_destination)
-        controls_layout.addWidget(self.destination_btn)
+        save_to_layout.addWidget(self.destination_btn)
 
-        main_layout.addLayout(controls_layout)
+        settings_layout.addWidget(save_to_container)
 
+        # Add settings panel to right layout
+        right_layout.addWidget(settings_panel)
+
+        # Add panels to splitter
+        splitter.addWidget(left_panel)
+        splitter.addWidget(right_panel)
+
+        # Set initial sizes (left panel larger than right)
+        splitter.setSizes([500, 300])  # 62.5/37.5 ratio
+
+        # Add splitter to main layout
+        main_layout.addWidget(splitter)
 
     def dragEnterEvent(self, event):
-        """Direct drag enter handling."""
+        """Enhanced drag enter handling."""
         if event.mimeData().hasUrls():
-            # Highlight drop zone
-            self.drop_bg.bg_color = "#203040"
-            self.drop_bg.update()
+            # Now using direct reference to drop container
+            self.drop_container.bg_color = "#1a2a3a"
+            self.drop_container.border_color = "#0078d4"
+            self.drop_container.update()
+
             self.drop_label.setStyleSheet("""
                 color: #ffffff;
-                font-size: 15px;
+                font-size: 14px;
                 font-weight: 400;
                 background-color: transparent;
+                padding-top: 0;
             """)
+            self.arrow.color = "#0078d4"
+            self.arrow.update()
             event.acceptProposedAction()
 
     def dragLeaveEvent(self, event):
-        """Direct drag leave handling."""
-        # Reset drop zone
-        self.drop_bg.bg_color = "#262626"
-        self.drop_bg.update()
+        """Enhanced drag leave handling."""
+        # Now using direct reference to drop container
+        self.drop_container.bg_color = "#171717"
+        self.drop_container.border_color = "#444444"
+        self.drop_container.update()
+
         self.drop_label.setStyleSheet("""
             color: #888888;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 400;
             background-color: transparent;
+            padding-top: 0;
         """)
+        self.arrow.color = "#666666"
+        self.arrow.update()
 
     def dropEvent(self, event):
-        """Direct drop handling - core functionality."""
+        """Enhanced drop handling."""
         if event.mimeData().hasUrls():
-            # Reset drop zone appearance
-            self.drop_bg.bg_color = "#262626"
-            self.drop_bg.update()
+            # Now using direct reference to drop container
+            self.drop_container.bg_color = "#171717"
+            self.drop_container.border_color = "#444444"
+            self.drop_container.update()
+
             self.drop_label.setStyleSheet("""
                 color: #888888;
-                font-size: 15px;
+                font-size: 14px;
                 font-weight: 400;
                 background-color: transparent;
+                padding-top: 0;
             """)
+            self.arrow.color = "#666666"
+            self.arrow.update()
 
             # Get valid files
             valid_files = []
@@ -725,7 +1048,7 @@ class ManusplitApp(QMainWindow):
             self.destination_btn.update_path(folder)
 
     def process_files(self, files):
-        """Process files - direct implementation."""
+        """Process files - maintains existing functionality."""
         # Prevent starting a new batch while a current processing thread is active
         if getattr(self, 'worker_thread', None) and self.worker_thread.isRunning():
             return
@@ -793,10 +1116,10 @@ class FirstRunScreen(QMainWindow):
         self.output_path = os.path.join(os.path.expanduser("~"), "Documents", "Manusplit Files")
         self.result = False
 
-        # Set app style
+        # Set app style - darker theme
         self.setStyleSheet("""
             QMainWindow, QWidget {
-                background-color: #1a1a1a;
+                background-color: #121212;
                 color: #ffffff;
                 font-family: -apple-system, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
             }
@@ -831,7 +1154,7 @@ class FirstRunScreen(QMainWindow):
         content_layout.setSpacing(12)
 
         # Background frame
-        self.content_bg = ElegantFrame(content_widget, radius=12, bg_color="#232323")
+        self.content_bg = ElegantFrame(content_widget, radius=12, bg_color="#171717")
         self.content_bg.setGeometry(content_widget.rect())
         content_widget.resizeEvent = lambda e: self.content_bg.setGeometry(content_widget.rect())
 
@@ -845,13 +1168,14 @@ class FirstRunScreen(QMainWindow):
         self.path_label.setStyleSheet("""
             color: #ffffff;
             font-size: 14px;
-            background-color: #2a2a2a;
+            background-color: #1a1a1a;
             border-radius: 6px;
             padding: 8px 12px;
         """)
         self.path_label.setFixedHeight(36)
         path_layout.addWidget(self.path_label, 1)
 
+        # Use animated button
         browse_btn = ElegantButton("Browse", self)
         browse_btn.clicked.connect(self.browse_folder)
         path_layout.addWidget(browse_btn)
@@ -881,7 +1205,7 @@ class FirstRunScreen(QMainWindow):
         # Push to right
         buttons_layout.addStretch(1)
 
-        # Continue button
+        # Continue button - with animation
         continue_btn = ElegantButton("Get Started", self, primary=True)
         continue_btn.clicked.connect(self.accept)
         buttons_layout.addWidget(continue_btn)
