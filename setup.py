@@ -2,7 +2,7 @@ from setuptools import setup
 
 APP = ['main.py']
 DATA_FILES = [
-    ('assets', ['assets/icon.png', 'assets/icon.icns']),
+    ('assets', ['assets/icon.png', 'assets/icon2.icns']),
 ]
 
 OPTIONS = {

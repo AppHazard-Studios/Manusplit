@@ -32,37 +32,30 @@ def get_settings_path():
 def create_default_settings_if_needed():
     """Create default settings file if needed"""
     settings_path = get_settings_path()
-
     logger = logging.getLogger(__name__)
-    default_output_path = os.path.join(os.path.expanduser("~"), "Documents", "Manusplit Files")
 
     # Only create if settings file doesn't exist
     if not os.path.exists(settings_path):
         try:
-            # Create default output folder
-            os.makedirs(default_output_path, exist_ok=True)
+            # Import Settings class defaults
+            default_settings = Settings.DEFAULT_SETTINGS.copy()
 
-            # Default settings
-            settings_dict = {
-                "max_words": 100000,
-                "output_folder": default_output_path,
-                "preserve_formatting": True,
-                "skip_under_limit": False,
-                "dark_mode": None,
-                "check_updates": True
-            }
+            # Only override output path
+            default_output_path = os.path.join(os.path.expanduser("~"), "Documents", "Manusplit Files")
+            default_settings["output_folder"] = default_output_path
+
+            # Create folder if needed
+            os.makedirs(default_output_path, exist_ok=True)
 
             # Write settings file
             with open(settings_path, "w") as f:
-                json.dump(settings_dict, f, indent=4)
+                json.dump(default_settings, f, indent=4)
 
             logger.info(f"Created settings with output folder: {default_output_path}")
             return True
-
         except Exception as e:
             logger.warning(f"Failed to create settings: {str(e)}")
             return False
-
     return True  # Settings already exist
 
 
@@ -76,7 +69,13 @@ def main():
         # Create PyQt application
         from PyQt6.QtWidgets import QApplication
         app = QApplication(sys.argv)
-        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icon.png")
+
+        # Use appropriate icon format based on platform
+        if sys.platform == 'darwin':  # macOS
+            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icon2.icns")
+        else:  # Windows/Linux
+            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icon.png")
+
         if os.path.exists(icon_path):
             from PyQt6.QtGui import QIcon
             app.setWindowIcon(QIcon(icon_path))

@@ -17,7 +17,7 @@ if sys.platform.startswith('win'):
     icon = 'assets/icon.ico'
 elif sys.platform.startswith('darwin'):
     platform = 'macos'
-    icon = 'assets/icon.icns'
+    icon = 'assets/icon2.icns'
 else:
     platform = 'linux'
     icon = 'assets/icon.png'
