@@ -7,7 +7,9 @@
 ## 🖼️ Preview
 
 <p align="center">
-  <img src="https://github.com/yourname/manusplit/blob/main/assets/manusplit-preview.gif?raw=true" width="500"/>
+  <a href="https://github.com/AppHazard-Studios/Manusplit/blob/main/Manusplit_Preview.png?raw=true" target="_blank">
+    <img src="https://github.com/AppHazard-Studios/Manusplit/blob/main/Manusplit_Preview.png?raw=true" width="600" alt="Manusplit Preview"/>
+  </a>
 </p>
 
 ---
