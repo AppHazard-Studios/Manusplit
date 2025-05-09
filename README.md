@@ -16,42 +16,41 @@
 
 ## 🎯 Overview
 
-**Manusplit** is a simple, purpose-built desktop application that helps you quickly break down massive text documents into smaller, manageable chunks — perfect for uploading into AI tools like OpenAI’s Custom GPT, which often have word count limits.
+**Manusplit** is a simple, purpose-built desktop application that helps you quickly break down massive text documents into smaller, manageable chunks — perfect for uploading into AI tools like OpenAI’s Custom GPT, which often have word-count limits.
 
-Just drag and drop your file, set a word limit, and Manusplit handles the rest.
+Just drag & drop your file, set a word limit, and Manusplit handles the rest.
 
 ---
 
 ## ✅ Key Features
 
-- **Super simple interface** — drag and drop files, no clutter
-- **Smart splitting on paragraph boundaries**
-- **Custom word limits** — set your target word count per output file
-- **Supports multiple files** — batch process several documents at once
-- **Cross-platform** — runs on Windows, macOS, and Linux
-- **Offline & private** — no internet connection or data sharing
+- **Super simple interface** — drag & drop files, no clutter  
+- **Smart splitting on paragraph boundaries**  
+- **Custom word limits** — set your target word count per output file  
+- **Batch processing** — split multiple documents at once  
+- **Offline & private** — no internet connection or data sharing  
+- **Cross-platform**  
+  - **macOS**: ready-to-use `.dmg` download  
+  - **Windows & Linux**: official binaries coming soon; in the meantime, you can build from source  
 
 ---
 
 ## 📦 Installation
 
-1. Visit the [Releases](https://github.com/yourname/manusplit/releases) page  
-2. Download the version for your operating system:  
-   - Windows `.exe`  
-   - macOS `.dmg`  
-   - Linux AppImage or archive  
-3. Run the app — no setup required
-
-✅ That’s it! You’re ready to start splitting.
+1. Go to the [Releases page](https://github.com/AppHazard-Studios/Manusplit/releases)  
+2. **macOS:** download the latest `.dmg` and open to install  
+3. **Windows & Linux:**  
+   - 🚧 _Official `.exe` and AppImage downloads are coming soon!_  
+   - In the meantime, you can build from source  
 
 ---
 
 ## 🚀 Usage
 
-1. Open **Manusplit**
-2. Drag and drop your `.docx` or `.txt` files into the window
-3. Set your desired word limit and output location
-4. Manusplit automatically creates clean, split files in your folder of choice
+1. Launch **Manusplit**  
+2. Drag & drop your `.docx` or `.txt` files into the window  
+3. Set your desired word limit and choose an output folder  
+4. Manusplit automatically creates neatly split files  
 
 ---
 
@@ -59,13 +58,13 @@ Just drag and drop your file, set a word limit, and Manusplit handles the rest.
 
 - **100% offline** — no internet connection required  
 - **No telemetry or tracking**  
-- All processing stays fully on your device
+- All processing stays fully on your device  
 
 ---
 
 ## 📩 Support
 
-For questions, feedback, or bug reports, contact **apphazardstudios@gmail.com**
+For questions, feedback, or bug reports, email **apphazardstudios@gmail.com**
 
 ---
 
