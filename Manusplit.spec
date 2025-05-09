@@ -32,7 +32,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['assets/icon.icns'],
+    icon=['assets/icon2.icns'],
 )
 coll = COLLECT(
     exe,
@@ -46,6 +46,6 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='Manusplit.app',
-    icon='assets/icon.icns',
+    icon='assets/icon2.icns',
     bundle_identifier='com.apphazardstudios.manusplit',
 )
