@@ -666,7 +666,7 @@ class WordLimitInput(QWidget):
         self.input.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Only allow integers
-        validator = QIntValidator(1000, 1000000)
+        validator = QIntValidator(1, 2147483647)
         self.input.setValidator(validator)
 
         self.input.textChanged.connect(self._value_changed)

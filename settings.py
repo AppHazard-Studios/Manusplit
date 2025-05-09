@@ -13,19 +13,17 @@ class Settings:
     
     # Default settings - updated to set preserve_formatting and skip_under_limit to False
     DEFAULT_SETTINGS = {
-        "max_words": 50000,
+        "max_words": 100000,
         "output_folder": "./output",
         "preserve_formatting": False,  # Changed from True
         "skip_under_limit": False,     # Changed from True
         "dark_mode": None,  # None = system default
-        "check_updates": True
+        "check_updates": False
     }
 
     # Setting constraints
     CONSTRAINTS = {
         "max_words": {
-            "min": 1000,
-            "max": 100000,
             "type": int
         }
     }
